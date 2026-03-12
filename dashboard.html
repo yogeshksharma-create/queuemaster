@@ -3,107 +3,148 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard • Multi-Site Name Rotation App</title>
-  <link rel="stylesheet" href="./style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background: #f6f8fb; }
+    .card { background: white; padding: 20px; border-radius: 10px; max-width: 700px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    button { padding: 10px 14px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; margin-right: 10px; }
+    button.secondary { background: #6b7280; }
+    .row { margin-bottom: 14px; }
+    .muted { color: #666; }
+    .error { color: #b00020; }
+    .success { color: #0a7a35; }
+  </style>
 </head>
-<body data-page="dashboard">
-  <div class="container">
-    <header class="header">
-      <div>
-        <h1>Queue Dashboard</h1>
-        <div class="badge-row">
-          <span class="badge" id="siteBadge">Select a site</span>
-          <span class="badge" id="roleBadge">Role</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <a href="./history.html" class="badge">History</a>
-        <a href="./admin.html" class="badge hidden" id="adminLink">Admin</a>
-        <button id="themeToggle" type="button" class="secondary">Toggle theme</button>
-        <button id="logoutBtn" type="button" class="ghost">Logout</button>
-      </div>
-    </header>
+<body>
+  <div class="card">
+    <h1>Queue Dashboard</h1>
+    <div class="row"><strong>User:</strong> <span id="userEmail">Loading...</span></div>
+    <div class="row"><strong>Site:</strong> <span id="siteName">Loading...</span></div>
+    <div class="row"><strong>Role:</strong> <span id="roleName">Loading...</span></div>
+    <div class="row"><strong>Next Name:</strong> <span id="nextName">Loading...</span></div>
+    <div class="row"><strong>Cycle Count:</strong> <span id="cycleCount">Loading...</span></div>
+    <div class="row"><strong>Version:</strong> <span id="versionNo">Loading...</span></div>
 
-    <nav class="nav">
-      <label for="siteSelector" class="small">Current site</label>
-      <select id="siteSelector" aria-label="Select current site"></select>
-    </nav>
-
-    <div id="pendingJoinAlert" class="banner warning hidden" role="status" aria-live="polite"></div>
-    <div id="commandBanner" class="banner hidden" role="status" aria-live="polite"></div>
-
-    <div id="noMembershipState" class="card hidden">
-      <h2>No active site memberships yet</h2>
-      <p class="muted">Use the join request form below to request access to an existing site, or type a new site name if it is not listed yet.</p>
+    <div class="row">
+      <button id="confirmBtn">Confirm Next</button>
+      <button id="skipBtn">Skip</button>
+      <button id="reverseBtn">Reverse</button>
+      <button id="logoutBtn" class="secondary">Logout</button>
     </div>
 
-    <div class="grid two">
-      <section class="card stack">
-        <div class="site-meta">
-          <div class="kpi">
-            <span class="muted small">Cycle count</span>
-            <strong id="cycleCount">0</strong>
-          </div>
-        </div>
-        <div>
-          <div class="muted small">Next available name</div>
-          <p id="queueName" class="queue-name">Loading…</p>
-        </div>
-        <div id="emptyState" class="empty-state hidden">No active names are currently configured for this site.</div>
-        <div class="button-row">
-          <button id="confirmBtn" class="primary" type="button">Confirm</button>
-          <button id="skipBtn" class="secondary" type="button">Skip</button>
-          <button id="reverseBtn" class="ghost" type="button">Reverse</button>
-        </div>
-        <div class="notice small">
-          Queue actions are realtime and conflict-safe. If someone else acts first, you will see a stale-update message.
-        </div>
-      </section>
-
-      <section class="card stack">
-        <h2>Request access to a site</h2>
-        <form id="joinRequestForm" class="stack">
-          <div>
-            <label for="joinRequestSiteName">Site name</label>
-            <input id="joinRequestSiteName" list="siteDirectory" type="text" placeholder="Start typing a site name" required />
-            <datalist id="siteDirectory"></datalist>
-            <input id="joinRequestSiteId" type="hidden" />
-          </div>
-          <div>
-            <label for="joinRequestMessage">Request note</label>
-            <textarea id="joinRequestMessage" maxlength="280" placeholder="Optional short reason for access request"></textarea>
-          </div>
-          <div class="notice small">
-            You may type a site not listed. That creates a pending request with a site-name placeholder until an admin links or creates it.
-          </div>
-          <button class="primary" type="submit">Submit join request</button>
-        </form>
-      </section>
-    </div>
-
-    <section class="card stack">
-      <h2>Recent queue history</h2>
-      <div id="historyList" class="list" aria-live="polite"></div>
-    </section>
+    <div class="row muted">Do not enter sensitive patient information in comments.</div>
+    <div class="row" id="message"></div>
   </div>
 
-  <div id="actionModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="actionTitle">
-    <div class="modal stack">
-      <h2 id="actionTitle">Queue action</h2>
-      <p id="actionDescription" class="muted"></p>
-      <div id="actionCommentWrap">
-        <label for="actionComment">Comment</label>
-        <textarea id="actionComment" maxlength="280" placeholder="Enter a comment only if operationally necessary"></textarea>
-      </div>
-      <div id="actionWarning" class="notice compliance-copy"></div>
-      <div class="button-row">
-        <button id="actionCancelBtn" type="button" class="ghost">Cancel</button>
-        <button id="actionSubmitBtn" type="button" class="primary">Submit</button>
-      </div>
-    </div>
-  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
+  <script>
+    const siteId = "456f7318-0278-44c9-bfa6-f5b342b8f340";
 
-  <script type="module" src="./app.js"></script>
+    function showMessage(text, cls = "") {
+      const el = document.getElementById("message");
+      el.className = cls;
+      el.textContent = text;
+    }
+
+    async function loadDashboard() {
+      const { data: { session } } = await window.supabaseClient.auth.getSession();
+      if (!session) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      document.getElementById("userEmail").textContent = session.user.email || "Unknown";
+
+      const { data: roleRows, error: roleError } = await window.supabaseClient
+        .from("user_site_roles")
+        .select("role, site_id, sites(name)")
+        .eq("user_id", session.user.id)
+        .eq("site_id", siteId)
+        .eq("is_active", true)
+        .limit(1);
+
+      if (roleError || !roleRows || !roleRows.length) {
+        showMessage("No active site membership found.", "error");
+        return;
+      }
+
+      const membership = roleRows[0];
+      document.getElementById("roleName").textContent = membership.role;
+      document.getElementById("siteName").textContent = membership.sites?.name || "Unknown Site";
+
+      const { data: state, error: stateError } = await window.supabaseClient
+        .from("selection_state")
+        .select("current_index, cycle_count, version")
+        .eq("site_id", siteId)
+        .single();
+
+      if (stateError || !state) {
+        showMessage("Selection state not found.", "error");
+        return;
+      }
+
+      document.getElementById("cycleCount").textContent = state.cycle_count;
+      document.getElementById("versionNo").textContent = state.version;
+
+      const { data: names, error: namesError } = await window.supabaseClient
+        .from("name_lists")
+        .select("id, display_name, sort_order")
+        .eq("site_id", siteId)
+        .is("deleted_at", null)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      if (namesError || !names || !names.length) {
+        showMessage("No names found for this site.", "error");
+        return;
+      }
+
+      const current = names[state.current_index] || names[0];
+      document.getElementById("nextName").textContent = current.display_name;
+      showMessage("Dashboard loaded.", "success");
+    }
+
+    async function callRpc(fnName) {
+      const comment = null;
+      const requestId = crypto.randomUUID();
+
+      const { data: state } = await window.supabaseClient
+        .from("selection_state")
+        .select("version")
+        .eq("site_id", siteId)
+        .single();
+
+      const payload = {
+        p_site_id: siteId,
+        p_comment: comment,
+        p_request_id: requestId
+      };
+
+      if (fnName === "confirm_next_name" || fnName === "skip_name") {
+        payload.p_expected_version = state?.version ?? 0;
+      }
+
+      const { data, error } = await window.supabaseClient.rpc(fnName, payload);
+
+      if (error) {
+        showMessage(error.message, "error");
+        return;
+      }
+
+      showMessage(fnName + " succeeded.", "success");
+      await loadDashboard();
+    }
+
+    document.getElementById("confirmBtn").addEventListener("click", () => callRpc("confirm_next_name"));
+    document.getElementById("skipBtn").addEventListener("click", () => callRpc("skip_name"));
+    document.getElementById("reverseBtn").addEventListener("click", () => callRpc("reverse_last_selection"));
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await window.supabaseClient.auth.signOut();
+      window.location.href = "index.html";
+    });
+
+    loadDashboard();
+  </script>
 </body>
 </html>
