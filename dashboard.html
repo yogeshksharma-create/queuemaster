@@ -150,21 +150,37 @@
       }
     }
 
-    async function callRpc(fnName) {
-      try {
-        const { data: versionResp, error: versionErr } = await window.supabaseClient
-          .from("selection_state")
-          .select("version")
-          .eq("site_id", siteId)
-          .single();
+    async function callRpc(fnName, commentValue = null) {
+  try {
+    const { data: versionResp, error: versionErr } = await window.supabaseClient
+      .from("selection_state")
+      .select("version")
+      .eq("site_id", siteId)
+      .single();
 
-        debug("versionResp", { versionResp, versionErr });
+    const payload = {
+      p_site_id: siteId,
+      p_comment: commentValue,
+      p_request_id: crypto.randomUUID()
+    };
 
-        const payload = {
-          p_site_id: siteId,
-          p_comment: null,
-          p_request_id: crypto.randomUUID()
-        };
+    if (fnName === "confirm_next_name" || fnName === "skip_name") {
+      payload.p_expected_version = versionResp?.version ?? 0;
+    }
+
+    const rpcResp = await window.supabaseClient.rpc(fnName, payload);
+
+    if (rpcResp.error) {
+      showMessage(rpcResp.error.message, "error");
+      return;
+    }
+
+    showMessage(fnName + " succeeded.", "success");
+    await loadDashboard();
+  } catch (err) {
+    showMessage(err.message, "error");
+  }
+}
 
         if (fnName === "confirm_next_name" || fnName === "skip_name") {
           payload.p_expected_version = versionResp?.version ?? 0;
@@ -188,7 +204,11 @@
 
     document.getElementById("confirmBtn").addEventListener("click", () => callRpc("confirm_next_name"));
     document.getElementById("skipBtn").addEventListener("click", () => callRpc("skip_name"));
-    document.getElementById("reverseBtn").addEventListener("click", () => callRpc("reverse_last_selection"));
+    document.getElementById("reverseBtn").addEventListener("click", async () => {
+  const comment = prompt("Enter reverse comment:");
+  if (comment === null) return; // user cancelled
+  await callRpc("reverse_last_selection", comment);
+});
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await window.supabaseClient.auth.signOut();
       window.location.href = "index.html";
