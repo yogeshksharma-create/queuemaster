@@ -6,13 +6,14 @@
   <title>Dashboard</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 24px; background: #f6f8fb; }
-    .card { background: white; padding: 20px; border-radius: 10px; max-width: 700px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .card { background: white; padding: 20px; border-radius: 10px; max-width: 760px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
     button { padding: 10px 14px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; margin-right: 10px; }
     button.secondary { background: #6b7280; }
     .row { margin-bottom: 14px; }
     .muted { color: #666; }
-    .error { color: #b00020; }
+    .error { color: #b00020; white-space: pre-wrap; }
     .success { color: #0a7a35; }
+    pre { background: #f3f4f6; padding: 12px; border-radius: 8px; overflow: auto; }
   </style>
 </head>
 <body>
@@ -34,6 +35,7 @@
 
     <div class="row muted">Do not enter sensitive patient information in comments.</div>
     <div class="row" id="message"></div>
+    <pre id="debugBox">Starting debug...</pre>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -47,93 +49,141 @@
       el.textContent = text;
     }
 
+    function debug(label, value) {
+      const box = document.getElementById("debugBox");
+      const line = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      box.textContent += `\n\n=== ${label} ===\n${line}`;
+      console.log(label, value);
+    }
+
     async function loadDashboard() {
-      const { data: { session } } = await window.supabaseClient.auth.getSession();
-      if (!session) {
-        window.location.href = "index.html";
-        return;
+      try {
+        debug("window.location.href", window.location.href);
+
+        if (!window.supabaseClient) {
+          showMessage("Supabase client not loaded.", "error");
+          debug("supabaseClient", "missing");
+          return;
+        }
+
+        const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
+        debug("sessionError", sessionError);
+        debug("session", session);
+
+        if (!session) {
+          showMessage("No session found. Redirecting to login.", "error");
+          setTimeout(() => window.location.href = "index.html", 1500);
+          return;
+        }
+
+        document.getElementById("userEmail").textContent = session.user.email || "Unknown";
+
+        const roleResp = await window.supabaseClient
+          .from("user_site_roles")
+          .select("role, site_id")
+          .eq("user_id", session.user.id)
+          .eq("site_id", siteId)
+          .eq("is_active", true)
+          .limit(1);
+
+        debug("roleResp", roleResp);
+
+        if (roleResp.error || !roleResp.data || !roleResp.data.length) {
+          showMessage("No active site membership found.", "error");
+          return;
+        }
+
+        document.getElementById("roleName").textContent = roleResp.data[0].role;
+
+        const siteResp = await window.supabaseClient
+          .from("sites")
+          .select("id, name")
+          .eq("id", siteId)
+          .single();
+
+        debug("siteResp", siteResp);
+
+        if (siteResp.error || !siteResp.data) {
+          showMessage("Site lookup failed.", "error");
+          return;
+        }
+
+        document.getElementById("siteName").textContent = siteResp.data.name;
+
+        const stateResp = await window.supabaseClient
+          .from("selection_state")
+          .select("current_index, cycle_count, version")
+          .eq("site_id", siteId)
+          .single();
+
+        debug("stateResp", stateResp);
+
+        if (stateResp.error || !stateResp.data) {
+          showMessage("Selection state not found.", "error");
+          return;
+        }
+
+        document.getElementById("cycleCount").textContent = stateResp.data.cycle_count;
+        document.getElementById("versionNo").textContent = stateResp.data.version;
+
+        const namesResp = await window.supabaseClient
+          .from("name_lists")
+          .select("id, display_name, sort_order, is_active, deleted_at")
+          .eq("site_id", siteId)
+          .eq("is_active", true)
+          .is("deleted_at", null)
+          .order("sort_order", { ascending: true });
+
+        debug("namesResp", namesResp);
+
+        if (namesResp.error || !namesResp.data || !namesResp.data.length) {
+          showMessage("No names found for this site.", "error");
+          return;
+        }
+
+        const current = namesResp.data[stateResp.data.current_index] || namesResp.data[0];
+        document.getElementById("nextName").textContent = current.display_name;
+        showMessage("Dashboard loaded.", "success");
+      } catch (err) {
+        debug("catchError", { message: err.message, stack: err.stack });
+        showMessage(err.message, "error");
       }
-
-      document.getElementById("userEmail").textContent = session.user.email || "Unknown";
-
-      const { data: roleRows, error: roleError } = await window.supabaseClient
-        .from("user_site_roles")
-        .select("role, site_id, sites(name)")
-        .eq("user_id", session.user.id)
-        .eq("site_id", siteId)
-        .eq("is_active", true)
-        .limit(1);
-
-      if (roleError || !roleRows || !roleRows.length) {
-        showMessage("No active site membership found.", "error");
-        return;
-      }
-
-      const membership = roleRows[0];
-      document.getElementById("roleName").textContent = membership.role;
-      document.getElementById("siteName").textContent = membership.sites?.name || "Unknown Site";
-
-      const { data: state, error: stateError } = await window.supabaseClient
-        .from("selection_state")
-        .select("current_index, cycle_count, version")
-        .eq("site_id", siteId)
-        .single();
-
-      if (stateError || !state) {
-        showMessage("Selection state not found.", "error");
-        return;
-      }
-
-      document.getElementById("cycleCount").textContent = state.cycle_count;
-      document.getElementById("versionNo").textContent = state.version;
-
-      const { data: names, error: namesError } = await window.supabaseClient
-        .from("name_lists")
-        .select("id, display_name, sort_order")
-        .eq("site_id", siteId)
-        .is("deleted_at", null)
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (namesError || !names || !names.length) {
-        showMessage("No names found for this site.", "error");
-        return;
-      }
-
-      const current = names[state.current_index] || names[0];
-      document.getElementById("nextName").textContent = current.display_name;
-      showMessage("Dashboard loaded.", "success");
     }
 
     async function callRpc(fnName) {
-      const comment = null;
-      const requestId = crypto.randomUUID();
+      try {
+        const { data: versionResp, error: versionErr } = await window.supabaseClient
+          .from("selection_state")
+          .select("version")
+          .eq("site_id", siteId)
+          .single();
 
-      const { data: state } = await window.supabaseClient
-        .from("selection_state")
-        .select("version")
-        .eq("site_id", siteId)
-        .single();
+        debug("versionResp", { versionResp, versionErr });
 
-      const payload = {
-        p_site_id: siteId,
-        p_comment: comment,
-        p_request_id: requestId
-      };
+        const payload = {
+          p_site_id: siteId,
+          p_comment: null,
+          p_request_id: crypto.randomUUID()
+        };
 
-      if (fnName === "confirm_next_name" || fnName === "skip_name") {
-        payload.p_expected_version = state?.version ?? 0;
+        if (fnName === "confirm_next_name" || fnName === "skip_name") {
+          payload.p_expected_version = versionResp?.version ?? 0;
+        }
+
+        const rpcResp = await window.supabaseClient.rpc(fnName, payload);
+        debug("rpcResp " + fnName, rpcResp);
+
+        if (rpcResp.error) {
+          showMessage(rpcResp.error.message, "error");
+          return;
+        }
+
+        showMessage(fnName + " succeeded.", "success");
+        await loadDashboard();
+      } catch (err) {
+        debug("rpcCatch", err.message);
+        showMessage(err.message, "error");
       }
-
-      const { data, error } = await window.supabaseClient.rpc(fnName, payload);
-
-      if (error) {
-        showMessage(error.message, "error");
-        return;
-      }
-
-      showMessage(fnName + " succeeded.", "success");
-      await loadDashboard();
     }
 
     document.getElementById("confirmBtn").addEventListener("click", () => callRpc("confirm_next_name"));
