@@ -180,10 +180,22 @@
         const rpcResp = await window.supabaseClient.rpc(fnName, payload);
         debug("rpcResp " + fnName, rpcResp);
 
-        if (rpcResp.error) {
-          showMessage(rpcResp.error.message, "error");
-          return;
-        }
+      if (rpcResp.error) {
+  const msg = rpcResp.error.message || "";
+
+  if (
+    msg.toLowerCase().includes("version") ||
+    msg.toLowerCase().includes("stale") ||
+    msg.toLowerCase().includes("conflict")
+  ) {
+    showMessage("Someone else already updated the queue. Refreshing now.", "error");
+    await loadDashboard();
+    return;
+  }
+
+  showMessage(msg, "error");
+  return;
+}
 
         showMessage(fnName + " succeeded.", "success");
         await loadDashboard();
