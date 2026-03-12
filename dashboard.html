@@ -3,22 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard</title>
+  <title>Queue Dashboard</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 24px; background: #f6f8fb; }
     .card { background: white; padding: 20px; border-radius: 10px; max-width: 760px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    button { padding: 10px 14px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; margin-right: 10px; }
+    button { padding: 10px 14px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; margin-right: 10px; margin-bottom: 8px; }
     button.secondary { background: #6b7280; }
     .row { margin-bottom: 14px; }
     .muted { color: #666; }
     .error { color: #b00020; white-space: pre-wrap; }
-    .success { color: #0a7a35; }
-    pre { background: #f3f4f6; padding: 12px; border-radius: 8px; overflow: auto; }
+    .success { color: #0a7a35; white-space: pre-wrap; }
+    pre { background: #f3f4f6; padding: 12px; border-radius: 8px; overflow: auto; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Queue Dashboard</h1>
+
     <div class="row"><strong>User:</strong> <span id="userEmail">Loading...</span></div>
     <div class="row"><strong>Site:</strong> <span id="siteName">Loading...</span></div>
     <div class="row"><strong>Role:</strong> <span id="roleName">Loading...</span></div>
@@ -35,7 +36,7 @@
 
     <div class="row muted">Do not enter sensitive patient information in comments.</div>
     <div class="row" id="message"></div>
-    <pre id="debugBox">Starting debug...</pre>
+    <pre id="debugBox">Dashboard starting...</pre>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -58,7 +59,7 @@
 
     async function loadDashboard() {
       try {
-        debug("window.location.href", window.location.href);
+        debug("page", window.location.href);
 
         if (!window.supabaseClient) {
           showMessage("Supabase client not loaded.", "error");
@@ -66,13 +67,15 @@
           return;
         }
 
-        const { data: { session }, error: sessionError } = await window.supabaseClient.auth.getSession();
-        debug("sessionError", sessionError);
-        debug("session", session);
+        const sessionResp = await window.supabaseClient.auth.getSession();
+        debug("sessionResp", sessionResp);
 
+        const session = sessionResp?.data?.session;
         if (!session) {
           showMessage("No session found. Redirecting to login.", "error");
-          setTimeout(() => window.location.href = "index.html", 1500);
+          setTimeout(() => {
+            window.location.href = "index.html";
+          }, 1200);
           return;
         }
 
@@ -141,49 +144,37 @@
           return;
         }
 
-        const current = namesResp.data[stateResp.data.current_index] || namesResp.data[0];
+        const idx = stateResp.data.current_index || 0;
+        const current = namesResp.data[idx] || namesResp.data[0];
         document.getElementById("nextName").textContent = current.display_name;
+
         showMessage("Dashboard loaded.", "success");
       } catch (err) {
-        debug("catchError", { message: err.message, stack: err.stack });
+        debug("loadDashboard error", { message: err.message, stack: err.stack });
         showMessage(err.message, "error");
       }
     }
 
     async function callRpc(fnName, commentValue = null) {
-  try {
-    const { data: versionResp, error: versionErr } = await window.supabaseClient
-      .from("selection_state")
-      .select("version")
-      .eq("site_id", siteId)
-      .single();
+      try {
+        showMessage("Working...", "");
 
-    const payload = {
-      p_site_id: siteId,
-      p_comment: commentValue,
-      p_request_id: crypto.randomUUID()
-    };
+        const versionResp = await window.supabaseClient
+          .from("selection_state")
+          .select("version")
+          .eq("site_id", siteId)
+          .single();
 
-    if (fnName === "confirm_next_name" || fnName === "skip_name") {
-      payload.p_expected_version = versionResp?.version ?? 0;
-    }
+        debug("versionResp", versionResp);
 
-    const rpcResp = await window.supabaseClient.rpc(fnName, payload);
-
-    if (rpcResp.error) {
-      showMessage(rpcResp.error.message, "error");
-      return;
-    }
-
-    showMessage(fnName + " succeeded.", "success");
-    await loadDashboard();
-  } catch (err) {
-    showMessage(err.message, "error");
-  }
-}
+        const payload = {
+          p_site_id: siteId,
+          p_comment: commentValue,
+          p_request_id: crypto.randomUUID()
+        };
 
         if (fnName === "confirm_next_name" || fnName === "skip_name") {
-          payload.p_expected_version = versionResp?.version ?? 0;
+          payload.p_expected_version = versionResp?.data?.version ?? 0;
         }
 
         const rpcResp = await window.supabaseClient.rpc(fnName, payload);
@@ -197,18 +188,25 @@
         showMessage(fnName + " succeeded.", "success");
         await loadDashboard();
       } catch (err) {
-        debug("rpcCatch", err.message);
+        debug("callRpc error", { message: err.message, stack: err.stack });
         showMessage(err.message, "error");
       }
     }
 
-    document.getElementById("confirmBtn").addEventListener("click", () => callRpc("confirm_next_name"));
-    document.getElementById("skipBtn").addEventListener("click", () => callRpc("skip_name"));
+    document.getElementById("confirmBtn").addEventListener("click", async () => {
+      await callRpc("confirm_next_name", null);
+    });
+
+    document.getElementById("skipBtn").addEventListener("click", async () => {
+      await callRpc("skip_name", null);
+    });
+
     document.getElementById("reverseBtn").addEventListener("click", async () => {
-  const comment = prompt("Enter reverse comment:");
-  if (comment === null) return; // user cancelled
-  await callRpc("reverse_last_selection", comment);
-});
+      const comment = prompt("Enter reverse comment:");
+      if (comment === null) return;
+      await callRpc("reverse_last_selection", comment);
+    });
+
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await window.supabaseClient.auth.signOut();
       window.location.href = "index.html";
