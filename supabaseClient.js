@@ -1,6 +1,6 @@
 
-const SUPABASE_URL = window.__APP_CONFIG__?.SUPABASE_URL || "https://YOUR_PROJECT.supabase.co";
-const SUPABASE_ANON_KEY = window.__APP_CONFIG__?.SUPABASE_ANON_KEY || "YOUR_PUBLIC_ANON_KEY";
+const SUPABASE_URL = window.__APP_CONFIG__?.SUPABASE_URL || "https://dwgnjnljpractxstijbx.supabase.co";
+const SUPABASE_ANON_KEY = window.__APP_CONFIG__?.SUPABASE_ANON_KEY || "sb_publishable_oNiHxf9sCWmw0Q5pAVpi0A_m7yUKdi_";
 
 if (!window.supabase) {
   throw new Error("Supabase browser client CDN must be loaded before supabaseClient.js");
