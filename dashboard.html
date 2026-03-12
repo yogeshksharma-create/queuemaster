@@ -14,6 +14,7 @@
     .error { color: #b00020; white-space: pre-wrap; }
     .success { color: #0a7a35; white-space: pre-wrap; }
     pre { background: #f3f4f6; padding: 12px; border-radius: 8px; overflow: auto; white-space: pre-wrap; }
+    textarea { width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; padding: 10px; }
   </style>
 </head>
 <body>
@@ -33,25 +34,29 @@
       <button id="reverseBtn">Reverse</button>
       <button id="logoutBtn" class="secondary">Logout</button>
     </div>
-<div id="commentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
-  <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:420px;">
-    <h3 id="modalTitle">Add Comment</h3>
-    <textarea id="modalComment" rows="4" style="width:100%; box-sizing:border-box;" placeholder="Enter comment"></textarea>
-    <div style="margin-top:12px;">
-      <button id="modalSaveBtn">Submit</button>
-      <button id="modalCancelBtn" class="secondary">Cancel</button>
-    </div>
-  </div>
-</div>   
+
     <div class="row muted">Do not enter sensitive patient information in comments.</div>
     <div class="row" id="message"></div>
     <pre id="debugBox">Dashboard starting...</pre>
+  </div>
+
+  <div id="commentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:420px;">
+      <h3 id="modalTitle">Add Comment</h3>
+      <textarea id="modalComment" rows="4" placeholder="Enter comment"></textarea>
+      <div style="margin-top:12px;">
+        <button id="modalSaveBtn">Submit</button>
+        <button id="modalCancelBtn" class="secondary">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
     const siteId = "456f7318-0278-44c9-bfa6-f5b342b8f340";
+    let pendingAction = null;
+    let queueChannel = null;
 
     function showMessage(text, cls = "") {
       const el = document.getElementById("message");
@@ -66,10 +71,20 @@
       console.log(label, value);
     }
 
+    function openCommentModal(title, actionName) {
+      pendingAction = actionName;
+      document.getElementById("modalTitle").textContent = title;
+      document.getElementById("modalComment").value = "";
+      document.getElementById("commentModal").style.display = "flex";
+    }
+
+    function closeCommentModal() {
+      pendingAction = null;
+      document.getElementById("commentModal").style.display = "none";
+    }
+
     async function loadDashboard() {
       try {
-        debug("page", window.location.href);
-
         if (!window.supabaseClient) {
           showMessage("Supabase client not loaded.", "error");
           debug("supabaseClient", "missing");
@@ -82,9 +97,7 @@
         const session = sessionResp?.data?.session;
         if (!session) {
           showMessage("No session found. Redirecting to login.", "error");
-          setTimeout(() => {
-            window.location.href = "index.html";
-          }, 1200);
+          setTimeout(() => window.location.href = "index.html", 1200);
           return;
         }
 
@@ -189,22 +202,20 @@
         const rpcResp = await window.supabaseClient.rpc(fnName, payload);
         debug("rpcResp " + fnName, rpcResp);
 
-      if (rpcResp.error) {
-  const msg = rpcResp.error.message || "";
-
-  if (
-    msg.toLowerCase().includes("version") ||
-    msg.toLowerCase().includes("stale") ||
-    msg.toLowerCase().includes("conflict")
-  ) {
-    showMessage("Someone else already updated the queue. Refreshing now.", "error");
-    await loadDashboard();
-    return;
-  }
-
-  showMessage(msg, "error");
-  return;
-}
+        if (rpcResp.error) {
+          const msg = rpcResp.error.message || "";
+          if (
+            msg.toLowerCase().includes("version") ||
+            msg.toLowerCase().includes("stale") ||
+            msg.toLowerCase().includes("conflict")
+          ) {
+            showMessage("Someone else already updated the queue. Refreshing now.", "error");
+            await loadDashboard();
+            return;
+          }
+          showMessage(msg, "error");
+          return;
+        }
 
         showMessage(fnName + " succeeded.", "success");
         await loadDashboard();
@@ -214,6 +225,54 @@
       }
     }
 
+    function subscribeToRealtime() {
+      if (!window.supabaseClient) return;
+
+      if (queueChannel) {
+        window.supabaseClient.removeChannel(queueChannel);
+      }
+
+      queueChannel = window.supabaseClient
+        .channel("queue-site-" + siteId)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "selection_state",
+            filter: "site_id=eq." + siteId
+          },
+          async () => {
+            await loadDashboard();
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "selection_log",
+            filter: "site_id=eq." + siteId
+          },
+          async () => {
+            await loadDashboard();
+          }
+        )
+        .subscribe((status) => {
+          debug("realtime status", status);
+        });
+    }
+
+    document.getElementById("modalCancelBtn").addEventListener("click", closeCommentModal);
+
+    document.getElementById("modalSaveBtn").addEventListener("click", async () => {
+      const comment = document.getElementById("modalComment").value.trim();
+      if (!pendingAction) return;
+      const action = pendingAction;
+      closeCommentModal();
+      await callRpc(action, comment || null);
+    });
+
     document.getElementById("confirmBtn").addEventListener("click", async () => {
       await callRpc("confirm_next_name", null);
     });
@@ -222,81 +281,17 @@
       await callRpc("skip_name", null);
     });
 
-    document.getElementById("reverseBtn").addEventListener("click", async () => {
-  openCommentModal("Enter reverse comment", "reverse_last_selection");
-});
+    document.getElementById("reverseBtn").addEventListener("click", () => {
+      openCommentModal("Enter reverse comment", "reverse_last_selection");
+    });
 
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await window.supabaseClient.auth.signOut();
       window.location.href = "index.html";
     });
-<script>
-  let queueChannel;
 
-  function subscribeToRealtime() {
-    if (!window.supabaseClient) return;
-
-    if (queueChannel) {
-      window.supabaseClient.removeChannel(queueChannel);
-    }
-
-    queueChannel = window.supabaseClient
-      .channel("queue-site-456f7318-0278-44c9-bfa6-f5b342b8f340")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "selection_state",
-          filter: "site_id=eq.456f7318-0278-44c9-bfa6-f5b342b8f340"
-        },
-        async () => {
-          showMessage("Queue updated in real time.", "success");
-          await loadDashboard();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "selection_log",
-          filter: "site_id=eq.456f7318-0278-44c9-bfa6-f5b342b8f340"
-        },
-        async () => {
-          await loadDashboard();
-        }
-      )
-      .subscribe((status) => {
-        debug("realtime status", status);
-      });
-  }
-</script>    
-subscribeToRealtime();
-  let pendingAction = null;
-
-function openCommentModal(title, actionName) {
-  pendingAction = actionName;
-  document.getElementById("modalTitle").textContent = title;
-  document.getElementById("modalComment").value = "";
-  document.getElementById("commentModal").style.display = "flex";
-}
-
-function closeCommentModal() {
-  pendingAction = null;
-  document.getElementById("commentModal").style.display = "none";
-}
-
-document.getElementById("modalCancelBtn").addEventListener("click", closeCommentModal);
-
-document.getElementById("modalSaveBtn").addEventListener("click", async () => {
-  const comment = document.getElementById("modalComment").value.trim();
-  if (!pendingAction) return;
-  const action = pendingAction;
-  closeCommentModal();
-  await callRpc(action, comment || null);
-});
-loadDashboard();
+    subscribeToRealtime();
+    loadDashboard();
   </script>
 </body>
 </html>
