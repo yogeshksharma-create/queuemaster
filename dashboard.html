@@ -5,46 +5,249 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Queue Dashboard</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 24px; background: #f6f8fb; }
-    .card { background: white; padding: 20px; border-radius: 10px; max-width: 760px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    button { padding: 10px 14px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; margin-right: 10px; margin-bottom: 8px; }
-    button.secondary { background: #6b7280; }
-    .row { margin-bottom: 14px; }
-    .muted { color: #666; }
-    .error { color: #b00020; white-space: pre-wrap; }
-    .success { color: #0a7a35; white-space: pre-wrap; }
-    pre { background: #f3f4f6; padding: 12px; border-radius: 8px; overflow: auto; white-space: pre-wrap; }
-    textarea { width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 8px; padding: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      background: #f6f8fb;
+      color: #111827;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 1100px;
+      margin: 0 auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .queue-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .queue-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .row {
+      margin-bottom: 14px;
+    }
+
+    .muted {
+      color: #666;
+    }
+
+    .error {
+      color: #b00020;
+      white-space: pre-wrap;
+    }
+
+    .success {
+      color: #0a7a35;
+      white-space: pre-wrap;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    button.secondary {
+      background: #6b7280;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .side-panel {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .side-panel h3 {
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+
+    .queue-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .queue-item {
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid #e5e7eb;
+      border-left: 6px solid #e5e7eb;
+      background: #ffffff;
+    }
+
+    .queue-item.completed {
+      background: #ecfdf5;
+      border-color: #10b981;
+      color: #065f46;
+    }
+
+    .queue-item.next {
+      background: #eff6ff;
+      border-color: #2563eb;
+      color: #1d4ed8;
+    }
+
+    .queue-item.upcoming {
+      background: #ffffff;
+      border-color: #d1d5db;
+      color: #111827;
+    }
+
+    .queue-item-name {
+      font-weight: 600;
+    }
+
+    .queue-item-status {
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .history-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+
+    .history-list li:last-child {
+      border-bottom: none;
+    }
+
+    pre {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 8px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-size: 12px;
+      max-height: 260px;
+    }
+
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #eef2ff;
+      color: #3730a3;
+      margin-left: 8px;
+    }
+
+    .banner {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      color: #9a3412;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Queue Dashboard</h1>
 
-    <div class="row"><strong>User:</strong> <span id="userEmail">Loading...</span></div>
-    <div class="row"><strong>Site:</strong> <span id="siteName">Loading...</span></div>
-    <div class="row"><strong>Role:</strong> <span id="roleName">Loading...</span></div>
-    <div class="row"><strong>Next Name:</strong> <span id="nextName">Loading...</span></div>
-    <div class="row"><strong>Cycle Count:</strong> <span id="cycleCount">Loading...</span></div>
-    <div class="row"><strong>Version:</strong> <span id="versionNo">Loading...</span></div>
-
-    <div class="row">
-      <button id="confirmBtn">Confirm Next</button>
-      <button id="skipBtn">Skip</button>
-      <button id="reverseBtn">Reverse</button>
-      <button id="logoutBtn" class="secondary">Logout</button>
+    <div id="commandsBanner" class="banner" style="display:none;">
+      Commands are currently disabled for this site.
     </div>
 
-    <div class="row muted">Do not enter sensitive patient information in comments.</div>
-    <div class="row" id="message"></div>
-    <pre id="debugBox">Dashboard starting...</pre>
+    <div class="queue-layout">
+      <div>
+        <div class="row"><strong>User:</strong> <span id="userEmail">Loading...</span></div>
+        <div class="row"><strong>Site:</strong> <span id="siteName">Loading...</span></div>
+        <div class="row"><strong>Role:</strong> <span id="roleName">Loading...</span><span id="roleBadge" class="badge">...</span></div>
+        <div class="row"><strong>Next Name:</strong> <span id="nextName">Loading...</span></div>
+        <div class="row"><strong>Cycle Count:</strong> <span id="cycleCount">Loading...</span></div>
+        <div class="row"><strong>Version:</strong> <span id="versionNo">Loading...</span></div>
+        <div class="row"><strong>Selection Comment Mode:</strong> <span id="selectionCommentMode">Loading...</span></div>
+        <div class="row"><strong>Skip Comment Mode:</strong> <span id="skipCommentMode">Loading...</span></div>
+        <div class="row"><strong>Reverse Comment Mode:</strong> <span id="reverseCommentMode">Loading...</span></div>
+
+        <div class="row">
+          <button id="confirmBtn">Confirm Next</button>
+          <button id="skipBtn">Skip</button>
+          <button id="reverseBtn">Reverse</button>
+          <button id="logoutBtn" class="secondary">Logout</button>
+        </div>
+
+        <div class="row muted">Do not enter sensitive patient information in comments.</div>
+        <div class="row" id="message"></div>
+
+        <div class="row">
+          <h3>Recent Activity</h3>
+          <ul id="historyList" class="history-list"></ul>
+        </div>
+      </div>
+
+      <div class="side-panel">
+        <h3>Queue Order</h3>
+        <div class="muted" style="margin-bottom:10px;">
+          Completed, next, and upcoming names for this cycle
+        </div>
+        <ul id="queueList" class="queue-list"></ul>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:18px;">
+      <h3>Debug</h3>
+      <pre id="debugBox">Dashboard starting...</pre>
+    </div>
   </div>
 
-  <div id="commentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
+  <div id="commentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; z-index:9999;">
     <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:420px;">
       <h3 id="modalTitle">Add Comment</h3>
       <textarea id="modalComment" rows="4" placeholder="Enter comment"></textarea>
-      <div style="margin-top:12px;">
+      <div class="muted" style="margin-top:8px; margin-bottom:10px;">
+        Do not enter sensitive patient information.
+      </div>
+      <div>
         <button id="modalSaveBtn">Submit</button>
         <button id="modalCancelBtn" class="secondary">Cancel</button>
       </div>
@@ -55,8 +258,12 @@
   <script src="supabaseClient.js"></script>
   <script>
     const siteId = "456f7318-0278-44c9-bfa6-f5b342b8f340";
+
     let pendingAction = null;
     let queueChannel = null;
+    let currentSettings = null;
+    let currentRole = null;
+    let currentCommandsEnabled = true;
 
     function showMessage(text, cls = "") {
       const el = document.getElementById("message");
@@ -71,6 +278,62 @@
       console.log(label, value);
     }
 
+    function setButtonsDisabled(disabled) {
+      document.getElementById("confirmBtn").disabled = disabled;
+      document.getElementById("skipBtn").disabled = disabled;
+      document.getElementById("reverseBtn").disabled = disabled;
+    }
+
+    function renderQueueList(names, currentIndex) {
+      const list = document.getElementById("queueList");
+      list.innerHTML = "";
+
+      names.forEach((name, index) => {
+        const li = document.createElement("li");
+        li.className = "queue-item";
+
+        let status = "Upcoming";
+        let className = "upcoming";
+
+        if (index < currentIndex) {
+          status = "Completed";
+          className = "completed";
+        } else if (index === currentIndex) {
+          status = "Next";
+          className = "next";
+        }
+
+        li.classList.add(className);
+
+        li.innerHTML = `
+          <div class="queue-item-name">${index + 1}. ${name.display_name}</div>
+          <div class="queue-item-status">${status}</div>
+        `;
+
+        list.appendChild(li);
+      });
+    }
+
+    function renderHistory(logRows) {
+      const historyList = document.getElementById("historyList");
+      historyList.innerHTML = "";
+
+      if (!logRows || !logRows.length) {
+        const li = document.createElement("li");
+        li.textContent = "No recent activity yet.";
+        historyList.appendChild(li);
+        return;
+      }
+
+      for (const row of logRows) {
+        const li = document.createElement("li");
+        const when = new Date(row.created_at).toLocaleString();
+        const commentText = row.comment ? ` • ${row.comment}` : "";
+        li.textContent = `${row.action_type} • ${when}${commentText}`;
+        historyList.appendChild(li);
+      }
+    }
+
     function openCommentModal(title, actionName) {
       pendingAction = actionName;
       document.getElementById("modalTitle").textContent = title;
@@ -81,6 +344,53 @@
     function closeCommentModal() {
       pendingAction = null;
       document.getElementById("commentModal").style.display = "none";
+    }
+
+    function requiresComment(actionName) {
+      if (!currentSettings) return false;
+
+      if (actionName === "confirm_next_name") {
+        return currentSettings.selection_comment_mode === "required";
+      }
+      if (actionName === "skip_name") {
+        return currentSettings.skip_comment_mode === "required";
+      }
+      if (actionName === "reverse_last_selection") {
+        return currentSettings.reverse_comment_mode === "required";
+      }
+
+      return false;
+    }
+
+    function commentModeForAction(actionName) {
+      if (!currentSettings) return "optional";
+
+      if (actionName === "confirm_next_name") return currentSettings.selection_comment_mode;
+      if (actionName === "skip_name") return currentSettings.skip_comment_mode;
+      if (actionName === "reverse_last_selection") return currentSettings.reverse_comment_mode;
+
+      return "optional";
+    }
+
+    function openActionCommentFlow(actionName, title) {
+      const mode = commentModeForAction(actionName);
+
+      if (mode === "disabled") {
+        callRpc(actionName, null);
+        return;
+      }
+
+      if (mode === "optional") {
+        openCommentModal(title + " (optional)", actionName);
+        return;
+      }
+
+      if (mode === "required") {
+        openCommentModal(title + " (required)", actionName);
+        return;
+      }
+
+      callRpc(actionName, null);
     }
 
     async function loadDashboard() {
@@ -118,7 +428,9 @@
           return;
         }
 
-        document.getElementById("roleName").textContent = roleResp.data[0].role;
+        currentRole = roleResp.data[0].role;
+        document.getElementById("roleName").textContent = currentRole;
+        document.getElementById("roleBadge").textContent = currentRole;
 
         const siteResp = await window.supabaseClient
           .from("sites")
@@ -134,6 +446,31 @@
         }
 
         document.getElementById("siteName").textContent = siteResp.data.name;
+
+        const settingsResp = await window.supabaseClient
+          .from("site_settings")
+          .select("selection_comment_mode, skip_comment_mode, reverse_comment_mode, commands_enabled")
+          .eq("site_id", siteId)
+          .single();
+
+        debug("settingsResp", settingsResp);
+
+        if (settingsResp.error || !settingsResp.data) {
+          showMessage("Site settings not found.", "error");
+          return;
+        }
+
+        currentSettings = settingsResp.data;
+        currentCommandsEnabled = !!settingsResp.data.commands_enabled;
+
+        document.getElementById("selectionCommentMode").textContent = settingsResp.data.selection_comment_mode;
+        document.getElementById("skipCommentMode").textContent = settingsResp.data.skip_comment_mode;
+        document.getElementById("reverseCommentMode").textContent = settingsResp.data.reverse_comment_mode;
+
+        document.getElementById("commandsBanner").style.display = currentCommandsEnabled ? "none" : "block";
+
+        const canAct = ["ADMIN", "EDITOR", "TASKER"].includes(currentRole) && currentCommandsEnabled;
+        setButtonsDisabled(!canAct);
 
         const stateResp = await window.supabaseClient
           .from("selection_state")
@@ -169,6 +506,17 @@
         const idx = stateResp.data.current_index || 0;
         const current = namesResp.data[idx] || namesResp.data[0];
         document.getElementById("nextName").textContent = current.display_name;
+        renderQueueList(namesResp.data, idx);
+
+        const logResp = await window.supabaseClient
+          .from("selection_log")
+          .select("action_type, comment, created_at")
+          .eq("site_id", siteId)
+          .order("created_at", { ascending: false })
+          .limit(8);
+
+        debug("logResp", logResp);
+        renderHistory(logResp.data || []);
 
         showMessage("Dashboard loaded.", "success");
       } catch (err) {
@@ -180,6 +528,12 @@
     async function callRpc(fnName, commentValue = null) {
       try {
         showMessage("Working...", "");
+
+        const mode = commentModeForAction(fnName);
+        if (mode === "required" && (!commentValue || !commentValue.trim())) {
+          showMessage("Comment is required for this action.", "error");
+          return;
+        }
 
         const versionResp = await window.supabaseClient
           .from("selection_state")
@@ -204,6 +558,7 @@
 
         if (rpcResp.error) {
           const msg = rpcResp.error.message || "";
+
           if (
             msg.toLowerCase().includes("version") ||
             msg.toLowerCase().includes("stale") ||
@@ -213,6 +568,7 @@
             await loadDashboard();
             return;
           }
+
           showMessage(msg, "error");
           return;
         }
@@ -267,22 +623,29 @@
 
     document.getElementById("modalSaveBtn").addEventListener("click", async () => {
       const comment = document.getElementById("modalComment").value.trim();
+
       if (!pendingAction) return;
+
+      if (requiresComment(pendingAction) && !comment) {
+        showMessage("Comment is required for this action.", "error");
+        return;
+      }
+
       const action = pendingAction;
       closeCommentModal();
       await callRpc(action, comment || null);
     });
 
-    document.getElementById("confirmBtn").addEventListener("click", async () => {
-      await callRpc("confirm_next_name", null);
+    document.getElementById("confirmBtn").addEventListener("click", () => {
+      openActionCommentFlow("confirm_next_name", "Confirm next name");
     });
 
-    document.getElementById("skipBtn").addEventListener("click", async () => {
-      await callRpc("skip_name", null);
+    document.getElementById("skipBtn").addEventListener("click", () => {
+      openActionCommentFlow("skip_name", "Skip current name");
     });
 
     document.getElementById("reverseBtn").addEventListener("click", () => {
-      openCommentModal("Enter reverse comment", "reverse_last_selection");
+      openActionCommentFlow("reverse_last_selection", "Reverse last action");
     });
 
     document.getElementById("logoutBtn").addEventListener("click", async () => {
