@@ -33,7 +33,16 @@
       <button id="reverseBtn">Reverse</button>
       <button id="logoutBtn" class="secondary">Logout</button>
     </div>
-
+<div id="commentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
+  <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:420px;">
+    <h3 id="modalTitle">Add Comment</h3>
+    <textarea id="modalComment" rows="4" style="width:100%; box-sizing:border-box;" placeholder="Enter comment"></textarea>
+    <div style="margin-top:12px;">
+      <button id="modalSaveBtn">Submit</button>
+      <button id="modalCancelBtn" class="secondary">Cancel</button>
+    </div>
+  </div>
+</div>   
     <div class="row muted">Do not enter sensitive patient information in comments.</div>
     <div class="row" id="message"></div>
     <pre id="debugBox">Dashboard starting...</pre>
@@ -214,10 +223,8 @@
     });
 
     document.getElementById("reverseBtn").addEventListener("click", async () => {
-      const comment = prompt("Enter reverse comment:");
-      if (comment === null) return;
-      await callRpc("reverse_last_selection", comment);
-    });
+  openCommentModal("Enter reverse comment", "reverse_last_selection");
+});
 
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await window.supabaseClient.auth.signOut();
@@ -266,6 +273,29 @@
   }
 </script>    
 subscribeToRealtime();
+  let pendingAction = null;
+
+function openCommentModal(title, actionName) {
+  pendingAction = actionName;
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalComment").value = "";
+  document.getElementById("commentModal").style.display = "flex";
+}
+
+function closeCommentModal() {
+  pendingAction = null;
+  document.getElementById("commentModal").style.display = "none";
+}
+
+document.getElementById("modalCancelBtn").addEventListener("click", closeCommentModal);
+
+document.getElementById("modalSaveBtn").addEventListener("click", async () => {
+  const comment = document.getElementById("modalComment").value.trim();
+  if (!pendingAction) return;
+  const action = pendingAction;
+  closeCommentModal();
+  await callRpc(action, comment || null);
+});
 loadDashboard();
   </script>
 </body>
