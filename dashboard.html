@@ -211,8 +211,50 @@
       await window.supabaseClient.auth.signOut();
       window.location.href = "index.html";
     });
+<script>
+  let queueChannel;
 
-    loadDashboard();
+  function subscribeToRealtime() {
+    if (!window.supabaseClient) return;
+
+    if (queueChannel) {
+      window.supabaseClient.removeChannel(queueChannel);
+    }
+
+    queueChannel = window.supabaseClient
+      .channel("queue-site-456f7318-0278-44c9-bfa6-f5b342b8f340")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "selection_state",
+          filter: "site_id=eq.456f7318-0278-44c9-bfa6-f5b342b8f340"
+        },
+        async () => {
+          showMessage("Queue updated in real time.", "success");
+          await loadDashboard();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "selection_log",
+          filter: "site_id=eq.456f7318-0278-44c9-bfa6-f5b342b8f340"
+        },
+        async () => {
+          await loadDashboard();
+        }
+      )
+      .subscribe((status) => {
+        debug("realtime status", status);
+      });
+  }
+</script>    
+subscribeToRealtime();
+loadDashboard();
   </script>
 </body>
 </html>
