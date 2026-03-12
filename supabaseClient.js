@@ -5,7 +5,7 @@ if (!window.supabase) {
   console.error("Supabase JS library did not load before supabaseClient.js");
 } else if (
   !SUPABASE_URL ||
-  SUPABASE_URL.includes("multi-site-rotation-app") ||
+  SUPABASE_URL.includes("YOUR_PROJECT") ||
   !SUPABASE_ANON_KEY ||
   SUPABASE_ANON_KEY.includes("PASTE_YOUR_REAL_ANON_KEY_HERE")
 ) {
