@@ -3,80 +3,96 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Multi-Site Name Rotation App</title>
-  <link rel="stylesheet" href="./style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Queue Rotation App</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f4f6f8; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+    .card { background:#fff; padding:32px; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.1); width:340px; }
+    h1 { margin-top:0; font-size:24px; }
+    input { width:100%; padding:10px; margin:8px 0; border:1px solid #ccc; border-radius:8px; box-sizing:border-box; }
+    button { width:100%; padding:10px; margin-top:10px; border:none; border-radius:8px; background:#2563eb; color:#fff; cursor:pointer; }
+    button.secondary { background:#6b7280; }
+    #msg { margin-top:14px; white-space:pre-wrap; font-size:14px; }
+    .error { color:#b00020; }
+    .ok { color:#0a7a35; }
+  </style>
 </head>
 <body>
-  <main class="auth-shell">
-    <section class="auth-card stack">
-      <div class="header">
-        <div>
-          <h1>Multi-Site Name Rotation App</h1>
-          <p class="muted">Secure multi-site rotation queues with RBAC, realtime updates, and audit logging.</p>
-        </div>
-        <button id="themeToggle" class="secondary" type="button" aria-label="Toggle theme">Toggle theme</button>
-      </div>
+  <div class="card">
+    <h1>Queue Rotation App</h1>
+    <input id="email" type="email" placeholder="Email" />
+    <input id="password" type="password" placeholder="Password" />
+    <button id="signinBtn">Sign In</button>
+    <button id="signupBtn" class="secondary">Sign Up</button>
+    <div id="msg"></div>
+  </div>
 
-      <div id="configNotice" class="banner warning hidden">
-        Frontend config is not set yet. Update the public Supabase URL and anon key before sign-in.
-      </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
+  <script>
+    const msg = document.getElementById("msg");
 
-      <div class="auth-switch">
-        <button id="showSignIn" type="button" class="primary">Sign in</button>
-        <button id="showSignUp" type="button" class="secondary">Sign up</button>
-      </div>
+    function setMsg(text, cls = "") {
+      msg.className = cls;
+      msg.textContent = text;
+    }
 
-      <form id="signInForm" class="stack" aria-label="Sign in form">
-        <div>
-          <label for="signinEmail">Email</label>
-          <input id="signinEmail" type="email" autocomplete="email" required />
-        </div>
-        <div>
-          <label for="signinPassword">Password</label>
-          <input id="signinPassword" type="password" autocomplete="current-password" required />
-        </div>
-        <div class="footer-actions">
-          <button type="button" class="ghost" id="showReset">Forgot password?</button>
-          <button type="submit" class="primary">Sign in</button>
-        </div>
-      </form>
+    async function signIn() {
+      try {
+        if (!window.supabaseClient) {
+          setMsg("Supabase client not loaded. Check supabaseClient.js.", "error");
+          return;
+        }
 
-      <form id="signUpForm" class="stack hidden" aria-label="Sign up form">
-        <div>
-          <label for="signupFullName">Full name</label>
-          <input id="signupFullName" type="text" autocomplete="name" required />
-        </div>
-        <div>
-          <label for="signupEmail">Email</label>
-          <input id="signupEmail" type="email" autocomplete="email" required />
-        </div>
-        <div>
-          <label for="signupPassword">Password</label>
-          <input id="signupPassword" type="password" autocomplete="new-password" minlength="10" required />
-        </div>
-        <div class="text-right">
-          <button type="submit" class="primary">Create account</button>
-        </div>
-      </form>
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
 
-      <form id="resetForm" class="stack hidden" aria-label="Password reset form">
-        <div>
-          <label for="resetEmail">Account email</label>
-          <input id="resetEmail" type="email" autocomplete="email" required />
-        </div>
-        <div class="footer-actions">
-          <button type="button" class="ghost" id="backToLogin">Back to sign in</button>
-          <button type="submit" class="primary">Send reset link</button>
-        </div>
-      </form>
+        const { data, error } = await window.supabaseClient.auth.signInWithPassword({
+          email,
+          password
+        });
 
-      <div class="notice small">
-        Use only the public Supabase anon key in this frontend. Privileged actions are enforced by RLS and Edge Functions.
-      </div>
-    </section>
-  </main>
+        if (error) {
+          setMsg(error.message, "error");
+          return;
+        }
 
-  <script type="module" src="./auth.js"></script>
+        setMsg("Sign-in successful. Redirecting...", "ok");
+        window.location.href = "dashboard.html";
+      } catch (e) {
+        setMsg(e.message, "error");
+        console.error(e);
+      }
+    }
+
+    async function signUp() {
+      try {
+        if (!window.supabaseClient) {
+          setMsg("Supabase client not loaded. Check supabaseClient.js.", "error");
+          return;
+        }
+
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+
+        const { data, error } = await window.supabaseClient.auth.signUp({
+          email,
+          password
+        });
+
+        if (error) {
+          setMsg(error.message, "error");
+          return;
+        }
+
+        setMsg("Account created. Now sign in.", "ok");
+      } catch (e) {
+        setMsg(e.message, "error");
+        console.error(e);
+      }
+    }
+
+    document.getElementById("signinBtn").addEventListener("click", signIn);
+    document.getElementById("signupBtn").addEventListener("click", signUp);
+  </script>
 </body>
 </html>
