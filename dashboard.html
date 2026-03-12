@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard • Multi-Site Name Rotation App</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body data-page="dashboard">
+  <div class="container">
+    <header class="header">
+      <div>
+        <h1>Queue Dashboard</h1>
+        <div class="badge-row">
+          <span class="badge" id="siteBadge">Select a site</span>
+          <span class="badge" id="roleBadge">Role</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a href="./history.html" class="badge">History</a>
+        <a href="./admin.html" class="badge hidden" id="adminLink">Admin</a>
+        <button id="themeToggle" type="button" class="secondary">Toggle theme</button>
+        <button id="logoutBtn" type="button" class="ghost">Logout</button>
+      </div>
+    </header>
+
+    <nav class="nav">
+      <label for="siteSelector" class="small">Current site</label>
+      <select id="siteSelector" aria-label="Select current site"></select>
+    </nav>
+
+    <div id="pendingJoinAlert" class="banner warning hidden" role="status" aria-live="polite"></div>
+    <div id="commandBanner" class="banner hidden" role="status" aria-live="polite"></div>
+
+    <div id="noMembershipState" class="card hidden">
+      <h2>No active site memberships yet</h2>
+      <p class="muted">Use the join request form below to request access to an existing site, or type a new site name if it is not listed yet.</p>
+    </div>
+
+    <div class="grid two">
+      <section class="card stack">
+        <div class="site-meta">
+          <div class="kpi">
+            <span class="muted small">Cycle count</span>
+            <strong id="cycleCount">0</strong>
+          </div>
+        </div>
+        <div>
+          <div class="muted small">Next available name</div>
+          <p id="queueName" class="queue-name">Loading…</p>
+        </div>
+        <div id="emptyState" class="empty-state hidden">No active names are currently configured for this site.</div>
+        <div class="button-row">
+          <button id="confirmBtn" class="primary" type="button">Confirm</button>
+          <button id="skipBtn" class="secondary" type="button">Skip</button>
+          <button id="reverseBtn" class="ghost" type="button">Reverse</button>
+        </div>
+        <div class="notice small">
+          Queue actions are realtime and conflict-safe. If someone else acts first, you will see a stale-update message.
+        </div>
+      </section>
+
+      <section class="card stack">
+        <h2>Request access to a site</h2>
+        <form id="joinRequestForm" class="stack">
+          <div>
+            <label for="joinRequestSiteName">Site name</label>
+            <input id="joinRequestSiteName" list="siteDirectory" type="text" placeholder="Start typing a site name" required />
+            <datalist id="siteDirectory"></datalist>
+            <input id="joinRequestSiteId" type="hidden" />
+          </div>
+          <div>
+            <label for="joinRequestMessage">Request note</label>
+            <textarea id="joinRequestMessage" maxlength="280" placeholder="Optional short reason for access request"></textarea>
+          </div>
+          <div class="notice small">
+            You may type a site not listed. That creates a pending request with a site-name placeholder until an admin links or creates it.
+          </div>
+          <button class="primary" type="submit">Submit join request</button>
+        </form>
+      </section>
+    </div>
+
+    <section class="card stack">
+      <h2>Recent queue history</h2>
+      <div id="historyList" class="list" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <div id="actionModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="actionTitle">
+    <div class="modal stack">
+      <h2 id="actionTitle">Queue action</h2>
+      <p id="actionDescription" class="muted"></p>
+      <div id="actionCommentWrap">
+        <label for="actionComment">Comment</label>
+        <textarea id="actionComment" maxlength="280" placeholder="Enter a comment only if operationally necessary"></textarea>
+      </div>
+      <div id="actionWarning" class="notice compliance-copy"></div>
+      <div class="button-row">
+        <button id="actionCancelBtn" type="button" class="ghost">Cancel</button>
+        <button id="actionSubmitBtn" type="button" class="primary">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

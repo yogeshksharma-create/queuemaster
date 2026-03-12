@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>History • Multi-Site Name Rotation App</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body data-page="history">
+  <div class="container">
+    <header class="header">
+      <div>
+        <h1>History</h1>
+        <p class="muted">Selection history is visible to site members. Audit history is admin-only.</p>
+      </div>
+      <div class="header-actions">
+        <a href="./dashboard.html" class="badge">Dashboard</a>
+        <a href="./admin.html" class="badge">Admin</a>
+        <button id="themeToggle" type="button" class="secondary">Toggle theme</button>
+        <button id="logoutBtn" type="button" class="ghost">Logout</button>
+      </div>
+    </header>
+
+    <nav class="nav">
+      <label for="historySiteSelector" class="small">Current site</label>
+      <select id="historySiteSelector"></select>
+    </nav>
+
+    <section class="card stack">
+      <h2>Selection history</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Action</th>
+              <th>Name</th>
+              <th>Actor</th>
+              <th>Comment</th>
+            </tr>
+          </thead>
+          <tbody id="selectionHistoryTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="auditSection" class="card stack hidden">
+      <h2>Audit history</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Action</th>
+              <th>Entity</th>
+              <th>Actor</th>
+              <th>Comment</th>
+            </tr>
+          </thead>
+          <tbody id="auditHistoryTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

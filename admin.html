@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin • Multi-Site Name Rotation App</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <h1>Admin / Editor Console</h1>
+        <div class="badge-row">
+          <span class="badge" id="adminSiteBadge">Site</span>
+          <span class="badge" id="adminRoleBadge">Role</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <a href="./dashboard.html" class="badge">Dashboard</a>
+        <a href="./history.html" class="badge">History</a>
+        <button id="themeToggle" type="button" class="secondary">Toggle theme</button>
+        <button id="logoutBtn" type="button" class="ghost">Logout</button>
+      </div>
+    </header>
+
+    <nav class="nav">
+      <label for="adminSiteSelector" class="small">Manage site</label>
+      <select id="adminSiteSelector" aria-label="Select site to manage"></select>
+    </nav>
+
+    <div class="grid two">
+      <section class="card stack" data-admin-only="true">
+        <h2>Site settings</h2>
+        <form id="settingsForm" class="stack">
+          <div class="grid two">
+            <div>
+              <label for="selectionCommentMode">Confirm comment mode</label>
+              <select id="selectionCommentMode" name="selectionCommentMode">
+                <option value="disabled">Disabled</option>
+                <option value="optional">Optional</option>
+                <option value="required">Required</option>
+              </select>
+            </div>
+            <div>
+              <label for="skipCommentMode">Skip comment mode</label>
+              <select id="skipCommentMode" name="skipCommentMode">
+                <option value="disabled">Disabled</option>
+                <option value="optional">Optional</option>
+                <option value="required">Required</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid two">
+            <div>
+              <label for="reverseCommentMode">Reverse comment mode</label>
+              <select id="reverseCommentMode" name="reverseCommentMode">
+                <option value="disabled">Disabled</option>
+                <option value="optional">Optional</option>
+                <option value="required">Required</option>
+              </select>
+            </div>
+            <div>
+              <label for="maxCommentLength">Max comment length</label>
+              <input id="maxCommentLength" name="maxCommentLength" type="number" min="0" max="2000" />
+            </div>
+          </div>
+
+          <div class="grid two">
+            <label><input id="dailyCycleResetEnabled" name="dailyCycleResetEnabled" type="checkbox" /> Enable daily cycle reset</label>
+            <label><input id="commandsEnabled" name="commandsEnabled" type="checkbox" /> Enable queue commands</label>
+            <label><input id="darkModeDefault" name="darkModeDefault" type="checkbox" /> Default new sessions to dark mode</label>
+            <label><input id="allowFreeTextNames" name="allowFreeTextNames" type="checkbox" /> Allow free-text names</label>
+          </div>
+
+          <div class="notice small">Comments should not contain patient identifiers or unnecessary sensitive operational details.</div>
+          <div class="button-row">
+            <button type="submit" class="primary">Save settings</button>
+            <button id="resetRotationBtn" type="button" class="danger">Reset rotation</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card stack">
+        <h2>Name list manager</h2>
+        <form id="nameForm" class="stack">
+          <div>
+            <label for="nameInput">Add name</label>
+            <input id="nameInput" list="nameSuggestions" type="text" placeholder="Type or pick a name" required />
+            <datalist id="nameSuggestions"></datalist>
+          </div>
+          <button type="submit" class="primary">Add name</button>
+        </form>
+        <div class="toolbar">
+          <button id="saveReorderBtn" type="button" class="secondary">Save drag-and-drop order</button>
+        </div>
+        <div id="namesList" class="list"></div>
+      </section>
+    </div>
+
+    <div class="grid two">
+      <section class="card stack" data-admin-only="true">
+        <h2>Invite user</h2>
+        <form id="inviteForm" class="stack">
+          <div>
+            <label for="inviteEmail">Invite by email</label>
+            <input id="inviteEmail" type="email" autocomplete="email" required />
+          </div>
+          <div>
+            <label for="inviteRole">Role</label>
+            <select id="inviteRole">
+              <option value="VIEWER">VIEWER</option>
+              <option value="TASKER">TASKER</option>
+              <option value="EDITOR">EDITOR</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+          </div>
+          <button type="submit" class="primary">Create invitation</button>
+        </form>
+        <div id="inviteResult" class="notice small">Invitation token will appear here in development mode.</div>
+      </section>
+
+      <section class="card stack" data-admin-only="true">
+        <h2>Pending join requests</h2>
+        <div id="joinRequestsList" class="list"></div>
+      </section>
+    </div>
+
+    <section class="card stack" data-admin-only="true">
+      <h2>User management</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Role</th>
+              <th>Active</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="membersTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card stack">
+      <h2>Recent queue history</h2>
+      <div id="adminHistoryList" class="list"></div>
+    </section>
+  </div>
+
+  <script type="module" src="./admin.js"></script>
+</body>
+</html>
