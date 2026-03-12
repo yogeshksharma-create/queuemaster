@@ -3,154 +3,979 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin • Multi-Site Name Rotation App</title>
-  <link rel="stylesheet" href="./style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Queue Admin</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      background: #f6f8fb;
+      color: #111827;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    h1, h2, h3 {
+      margin-top: 0;
+    }
+
+    .row {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      margin-right: 8px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    button.secondary {
+      background: #6b7280;
+    }
+
+    button.danger {
+      background: #dc2626;
+    }
+
+    button.success {
+      background: #059669;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .error {
+      color: #b00020;
+      white-space: pre-wrap;
+    }
+
+    .success-text {
+      color: #0a7a35;
+      white-space: pre-wrap;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #eef2ff;
+      color: #3730a3;
+      margin-left: 8px;
+    }
+
+    .list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .list-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+
+    .list-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .list-item-title {
+      font-weight: 700;
+    }
+
+    .inline-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .small-btn {
+      padding: 6px 10px;
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .name-order {
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .drag-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background: #fff;
+    }
+
+    .drag-label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .banner {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      color: #9a3412;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
+
+    .status-approved {
+      color: #047857;
+      font-weight: 700;
+    }
+
+    .status-denied {
+      color: #b91c1c;
+      font-weight: 700;
+    }
+
+    .status-pending {
+      color: #92400e;
+      font-weight: 700;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    pre {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 8px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-size: 12px;
+      max-height: 240px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
-    <header class="header">
+    <div class="topbar">
       <div>
-        <h1>Admin / Editor Console</h1>
-        <div class="badge-row">
-          <span class="badge" id="adminSiteBadge">Site</span>
-          <span class="badge" id="adminRoleBadge">Role</span>
+        <h1 style="margin-bottom:6px;">Queue Admin</h1>
+        <div class="muted">
+          Site: <span id="siteName">Loading...</span>
+          <span id="roleBadge" class="pill">...</span>
         </div>
       </div>
-      <div class="header-actions">
-        <a href="./dashboard.html" class="badge">Dashboard</a>
-        <a href="./history.html" class="badge">History</a>
-        <button id="themeToggle" type="button" class="secondary">Toggle theme</button>
-        <button id="logoutBtn" type="button" class="ghost">Logout</button>
+      <div class="topbar-actions">
+        <button id="goDashboardBtn" class="secondary">Dashboard</button>
+        <button id="logoutBtn" class="secondary">Logout</button>
       </div>
-    </header>
+    </div>
 
-    <nav class="nav">
-      <label for="adminSiteSelector" class="small">Manage site</label>
-      <select id="adminSiteSelector" aria-label="Select site to manage"></select>
-    </nav>
+    <div id="adminBanner" class="banner" style="display:none;">
+      Admin access is required for this page.
+    </div>
 
-    <div class="grid two">
-      <section class="card stack" data-admin-only="true">
-        <h2>Site settings</h2>
-        <form id="settingsForm" class="stack">
-          <div class="grid two">
-            <div>
-              <label for="selectionCommentMode">Confirm comment mode</label>
-              <select id="selectionCommentMode" name="selectionCommentMode">
-                <option value="disabled">Disabled</option>
-                <option value="optional">Optional</option>
-                <option value="required">Required</option>
-              </select>
-            </div>
-            <div>
-              <label for="skipCommentMode">Skip comment mode</label>
-              <select id="skipCommentMode" name="skipCommentMode">
-                <option value="disabled">Disabled</option>
-                <option value="optional">Optional</option>
-                <option value="required">Required</option>
-              </select>
-            </div>
-          </div>
-          <div class="grid two">
-            <div>
-              <label for="reverseCommentMode">Reverse comment mode</label>
-              <select id="reverseCommentMode" name="reverseCommentMode">
-                <option value="disabled">Disabled</option>
-                <option value="optional">Optional</option>
-                <option value="required">Required</option>
-              </select>
-            </div>
-            <div>
-              <label for="maxCommentLength">Max comment length</label>
-              <input id="maxCommentLength" name="maxCommentLength" type="number" min="0" max="2000" />
-            </div>
-          </div>
+    <div class="card">
+      <div class="row"><strong>User:</strong> <span id="userEmail">Loading...</span></div>
+      <div class="row"><strong>Role:</strong> <span id="roleName">Loading...</span></div>
+      <div class="row" id="message"></div>
+    </div>
 
-          <div class="grid two">
-            <label><input id="dailyCycleResetEnabled" name="dailyCycleResetEnabled" type="checkbox" /> Enable daily cycle reset</label>
-            <label><input id="commandsEnabled" name="commandsEnabled" type="checkbox" /> Enable queue commands</label>
-            <label><input id="darkModeDefault" name="darkModeDefault" type="checkbox" /> Default new sessions to dark mode</label>
-            <label><input id="allowFreeTextNames" name="allowFreeTextNames" type="checkbox" /> Allow free-text names</label>
-          </div>
+    <div class="grid">
+      <div class="card">
+        <h2>Site Settings</h2>
 
-          <div class="notice small">Comments should not contain patient identifiers or unnecessary sensitive operational details.</div>
-          <div class="button-row">
-            <button type="submit" class="primary">Save settings</button>
-            <button id="resetRotationBtn" type="button" class="danger">Reset rotation</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="card stack">
-        <h2>Name list manager</h2>
-        <form id="nameForm" class="stack">
-          <div>
-            <label for="nameInput">Add name</label>
-            <input id="nameInput" list="nameSuggestions" type="text" placeholder="Type or pick a name" required />
-            <datalist id="nameSuggestions"></datalist>
-          </div>
-          <button type="submit" class="primary">Add name</button>
-        </form>
-        <div class="toolbar">
-          <button id="saveReorderBtn" type="button" class="secondary">Save drag-and-drop order</button>
+        <div class="row">
+          <label for="selectionCommentMode">Selection Comment Mode</label>
+          <select id="selectionCommentMode">
+            <option value="disabled">disabled</option>
+            <option value="optional">optional</option>
+            <option value="required">required</option>
+          </select>
         </div>
-        <div id="namesList" class="list"></div>
-      </section>
-    </div>
 
-    <div class="grid two">
-      <section class="card stack" data-admin-only="true">
-        <h2>Invite user</h2>
-        <form id="inviteForm" class="stack">
-          <div>
-            <label for="inviteEmail">Invite by email</label>
-            <input id="inviteEmail" type="email" autocomplete="email" required />
-          </div>
-          <div>
-            <label for="inviteRole">Role</label>
-            <select id="inviteRole">
-              <option value="VIEWER">VIEWER</option>
-              <option value="TASKER">TASKER</option>
-              <option value="EDITOR">EDITOR</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
-          </div>
-          <button type="submit" class="primary">Create invitation</button>
-        </form>
-        <div id="inviteResult" class="notice small">Invitation token will appear here in development mode.</div>
-      </section>
+        <div class="row">
+          <label for="skipCommentMode">Skip Comment Mode</label>
+          <select id="skipCommentMode">
+            <option value="disabled">disabled</option>
+            <option value="optional">optional</option>
+            <option value="required">required</option>
+          </select>
+        </div>
 
-      <section class="card stack" data-admin-only="true">
-        <h2>Pending join requests</h2>
-        <div id="joinRequestsList" class="list"></div>
-      </section>
-    </div>
+        <div class="row">
+          <label for="reverseCommentMode">Reverse Comment Mode</label>
+          <select id="reverseCommentMode">
+            <option value="disabled">disabled</option>
+            <option value="optional">optional</option>
+            <option value="required">required</option>
+          </select>
+        </div>
 
-    <section class="card stack" data-admin-only="true">
-      <h2>User management</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Role</th>
-              <th>Active</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="membersTableBody"></tbody>
-        </table>
+        <div class="row">
+          <label for="maxCommentLength">Max Comment Length</label>
+          <input id="maxCommentLength" type="number" min="1" max="2000" />
+        </div>
+
+        <div class="row">
+          <label for="commandsEnabled">Commands Enabled</label>
+          <select id="commandsEnabled">
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label for="allowFreeTextNames">Allow Free Text Names</label>
+          <select id="allowFreeTextNames">
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label for="dailyCycleResetEnabled">Daily Cycle Reset Enabled</label>
+          <select id="dailyCycleResetEnabled">
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+
+        <button id="saveSettingsBtn">Save Settings</button>
       </div>
-    </section>
 
-    <section class="card stack">
-      <h2>Recent queue history</h2>
-      <div id="adminHistoryList" class="list"></div>
-    </section>
+      <div class="card">
+        <h2>Add Name</h2>
+
+        <div class="row">
+          <label for="newNameInput">New Name</label>
+          <input id="newNameInput" type="text" placeholder="Enter new queue name" />
+        </div>
+
+        <button id="addNameBtn" class="success">Add Name</button>
+
+        <div class="row muted" style="margin-top:12px;">
+          Names are added to the end of the active queue.
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Edit Names</h2>
+        <ul id="nameListEditor" class="list"></ul>
+      </div>
+
+      <div class="card">
+        <h2>Reorder Names</h2>
+        <div class="muted row">Use Up and Down to reorder, then save.</div>
+        <div id="reorderList"></div>
+        <button id="saveOrderBtn">Save Order</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Pending Join Requests</h2>
+        <ul id="joinRequestList" class="list"></ul>
+      </div>
+
+      <div class="card">
+        <h2>Admin Debug</h2>
+        <pre id="debugBox">Admin page starting...</pre>
+      </div>
+    </div>
   </div>
 
-  <script type="module" src="./admin.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
+  <script>
+    const siteId = "456f7318-0278-44c9-bfa6-f5b342b8f340";
+
+    let currentSession = null;
+    let currentRole = null;
+    let currentSettingsRow = null;
+    let editableNames = [];
+    let joinRequests = [];
+    let adminChannel = null;
+
+    function showMessage(text, cls = "") {
+      const el = document.getElementById("message");
+      el.className = cls;
+      el.textContent = text;
+    }
+
+    function debug(label, value) {
+      const box = document.getElementById("debugBox");
+      const line = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      box.textContent += `\n\n=== ${label} ===\n${line}`;
+      console.log(label, value);
+    }
+
+    function ensureAdmin(role) {
+      return role === "ADMIN";
+    }
+
+    function renderNameEditor() {
+      const list = document.getElementById("nameListEditor");
+      list.innerHTML = "";
+
+      if (!editableNames.length) {
+        const li = document.createElement("li");
+        li.className = "list-item";
+        li.textContent = "No names found.";
+        list.appendChild(li);
+        return;
+      }
+
+      editableNames.forEach((row) => {
+        const li = document.createElement("li");
+        li.className = "list-item";
+
+        li.innerHTML = `
+          <div class="list-item-header">
+            <div>
+              <div class="list-item-title">${row.display_name}</div>
+              <div class="name-order">Sort order: ${row.sort_order}</div>
+            </div>
+            <div class="inline-actions">
+              <button class="small-btn secondary" data-action="edit" data-id="${row.id}">Edit</button>
+              <button class="small-btn danger" data-action="${row.deleted_at ? "restore" : "softdelete"}" data-id="${row.id}">
+                ${row.deleted_at ? "Restore" : "Soft Delete"}
+              </button>
+            </div>
+          </div>
+          <div class="muted">Status: ${row.deleted_at ? "Deleted" : (row.is_active ? "Active" : "Inactive")}</div>
+        `;
+
+        list.appendChild(li);
+      });
+
+      list.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          const id = e.target.dataset.id;
+          const action = e.target.dataset.action;
+          if (action === "edit") {
+            await editName(id);
+          } else if (action === "softdelete") {
+            await softDeleteName(id);
+          } else if (action === "restore") {
+            await restoreName(id);
+          }
+        });
+      });
+    }
+
+    function renderReorderList() {
+      const container = document.getElementById("reorderList");
+      container.innerHTML = "";
+
+      const activeNames = editableNames
+        .filter((n) => !n.deleted_at && n.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+      if (!activeNames.length) {
+        container.innerHTML = `<div class="muted">No active names to reorder.</div>`;
+        return;
+      }
+
+      activeNames.forEach((row, index) => {
+        const div = document.createElement("div");
+        div.className = "drag-row";
+        div.innerHTML = `
+          <div class="drag-label">
+            <strong>${index + 1}. ${row.display_name}</strong>
+            <span class="muted">ID: ${row.id}</span>
+          </div>
+          <div class="controls">
+            <button class="small-btn secondary" data-action="up" data-index="${index}">Up</button>
+            <button class="small-btn secondary" data-action="down" data-index="${index}">Down</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      container.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const index = Number(e.target.dataset.index);
+          const action = e.target.dataset.action;
+
+          const active = editableNames
+            .filter((n) => !n.deleted_at && n.is_active)
+            .sort((a, b) => a.sort_order - b.sort_order);
+
+          if (action === "up" && index > 0) {
+            [active[index - 1], active[index]] = [active[index], active[index - 1]];
+          }
+
+          if (action === "down" && index < active.length - 1) {
+            [active[index + 1], active[index]] = [active[index], active[index + 1]];
+          }
+
+          const inactive = editableNames.filter((n) => n.deleted_at || !n.is_active);
+          active.forEach((item, i) => {
+            item.sort_order = i + 1;
+          });
+
+          editableNames = [...active, ...inactive];
+          renderReorderList();
+        });
+      });
+    }
+
+    function renderJoinRequests() {
+      const list = document.getElementById("joinRequestList");
+      list.innerHTML = "";
+
+      if (!joinRequests.length) {
+        const li = document.createElement("li");
+        li.className = "list-item";
+        li.textContent = "No pending join requests.";
+        list.appendChild(li);
+        return;
+      }
+
+      joinRequests.forEach((row) => {
+        const li = document.createElement("li");
+        li.className = "list-item";
+
+        li.innerHTML = `
+          <div class="list-item-header">
+            <div>
+              <div class="list-item-title">${row.requested_email || "Unknown email"}</div>
+              <div class="muted">Requested role: ${row.requested_role || "TASKER"}</div>
+              <div class="muted">Submitted: ${new Date(row.created_at).toLocaleString()}</div>
+            </div>
+            <div class="inline-actions">
+              <button class="small-btn success" data-action="approve" data-id="${row.id}">Approve</button>
+              <button class="small-btn danger" data-action="deny" data-id="${row.id}">Deny</button>
+            </div>
+          </div>
+          <div class="status-pending">Status: ${row.status}</div>
+        `;
+
+        list.appendChild(li);
+      });
+
+      list.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          const id = e.target.dataset.id;
+          const action = e.target.dataset.action;
+          if (action === "approve") {
+            await approveJoinRequest(id);
+          } else if (action === "deny") {
+            await denyJoinRequest(id);
+          }
+        });
+      });
+    }
+
+    async function loadSessionAndRole() {
+      const sessionResp = await window.supabaseClient.auth.getSession();
+      debug("sessionResp", sessionResp);
+
+      currentSession = sessionResp?.data?.session || null;
+      if (!currentSession) {
+        showMessage("No session found. Redirecting to login.", "error");
+        setTimeout(() => window.location.href = "index.html", 1200);
+        return false;
+      }
+
+      document.getElementById("userEmail").textContent = currentSession.user.email || "Unknown";
+
+      const roleResp = await window.supabaseClient
+        .from("user_site_roles")
+        .select("role")
+        .eq("user_id", currentSession.user.id)
+        .eq("site_id", siteId)
+        .eq("is_active", true)
+        .limit(1);
+
+      debug("roleResp", roleResp);
+
+      if (roleResp.error || !roleResp.data || !roleResp.data.length) {
+        showMessage("No active site membership found.", "error");
+        return false;
+      }
+
+      currentRole = roleResp.data[0].role;
+      document.getElementById("roleName").textContent = currentRole;
+      document.getElementById("roleBadge").textContent = currentRole;
+
+      if (!ensureAdmin(currentRole)) {
+        document.getElementById("adminBanner").style.display = "block";
+        showMessage("Admin role required for this page.", "error");
+        return false;
+      }
+
+      document.getElementById("adminBanner").style.display = "none";
+      return true;
+    }
+
+    async function loadSite() {
+      const siteResp = await window.supabaseClient
+        .from("sites")
+        .select("id, name")
+        .eq("id", siteId)
+        .single();
+
+      debug("siteResp", siteResp);
+
+      if (siteResp.error || !siteResp.data) {
+        showMessage("Site lookup failed.", "error");
+        return false;
+      }
+
+      document.getElementById("siteName").textContent = siteResp.data.name;
+      return true;
+    }
+
+    async function loadSettings() {
+      const settingsResp = await window.supabaseClient
+        .from("site_settings")
+        .select("*")
+        .eq("site_id", siteId)
+        .single();
+
+      debug("settingsResp", settingsResp);
+
+      if (settingsResp.error || !settingsResp.data) {
+        showMessage("Site settings not found.", "error");
+        return false;
+      }
+
+      currentSettingsRow = settingsResp.data;
+
+      document.getElementById("selectionCommentMode").value = settingsResp.data.selection_comment_mode;
+      document.getElementById("skipCommentMode").value = settingsResp.data.skip_comment_mode;
+      document.getElementById("reverseCommentMode").value = settingsResp.data.reverse_comment_mode;
+      document.getElementById("maxCommentLength").value = settingsResp.data.max_comment_length || 250;
+      document.getElementById("commandsEnabled").value = String(settingsResp.data.commands_enabled);
+      document.getElementById("allowFreeTextNames").value = String(settingsResp.data.allow_free_text_names);
+      document.getElementById("dailyCycleResetEnabled").value = String(settingsResp.data.daily_cycle_reset_enabled);
+
+      return true;
+    }
+
+    async function loadNames() {
+      const namesResp = await window.supabaseClient
+        .from("name_lists")
+        .select("id, display_name, sort_order, is_active, deleted_at")
+        .eq("site_id", siteId)
+        .order("sort_order", { ascending: true });
+
+      debug("namesResp", namesResp);
+
+      if (namesResp.error) {
+        showMessage(namesResp.error.message, "error");
+        return false;
+      }
+
+      editableNames = namesResp.data || [];
+      renderNameEditor();
+      renderReorderList();
+      return true;
+    }
+
+    async function loadJoinRequests() {
+      const reqResp = await window.supabaseClient
+        .from("join_requests")
+        .select("*")
+        .eq("site_id", siteId)
+        .eq("status", "PENDING")
+        .order("created_at", { ascending: false });
+
+      debug("joinRequestsResp", reqResp);
+
+      if (reqResp.error) {
+        showMessage(reqResp.error.message, "error");
+        return false;
+      }
+
+      joinRequests = reqResp.data || [];
+      renderJoinRequests();
+      return true;
+    }
+
+    async function loadAdminPage() {
+      try {
+        if (!window.supabaseClient) {
+          showMessage("Supabase client not loaded.", "error");
+          return;
+        }
+
+        const okSession = await loadSessionAndRole();
+        if (!okSession) return;
+
+        const okSite = await loadSite();
+        if (!okSite) return;
+
+        await loadSettings();
+        await loadNames();
+        await loadJoinRequests();
+
+        showMessage("Admin page loaded.", "success-text");
+      } catch (err) {
+        debug("loadAdminPage error", { message: err.message, stack: err.stack });
+        showMessage(err.message, "error");
+      }
+    }
+
+    async function saveSettings() {
+      try {
+        if (!currentSettingsRow) return;
+
+        const payload = {
+          selection_comment_mode: document.getElementById("selectionCommentMode").value,
+          skip_comment_mode: document.getElementById("skipCommentMode").value,
+          reverse_comment_mode: document.getElementById("reverseCommentMode").value,
+          max_comment_length: Number(document.getElementById("maxCommentLength").value || 250),
+          commands_enabled: document.getElementById("commandsEnabled").value === "true",
+          allow_free_text_names: document.getElementById("allowFreeTextNames").value === "true",
+          daily_cycle_reset_enabled: document.getElementById("dailyCycleResetEnabled").value === "true"
+        };
+
+        const resp = await window.supabaseClient
+          .from("site_settings")
+          .update(payload)
+          .eq("site_id", siteId)
+          .select()
+          .single();
+
+        debug("saveSettingsResp", resp);
+
+        if (resp.error) {
+          showMessage(resp.error.message, "error");
+          return;
+        }
+
+        showMessage("Settings saved.", "success-text");
+        await loadSettings();
+      } catch (err) {
+        showMessage(err.message, "error");
+      }
+    }
+
+    async function addName() {
+      try {
+        const name = document.getElementById("newNameInput").value.trim();
+        if (!name) {
+          showMessage("Enter a name first.", "error");
+          return;
+        }
+
+        const activeNames = editableNames
+          .filter((n) => !n.deleted_at)
+          .sort((a, b) => a.sort_order - b.sort_order);
+
+        const nextOrder = activeNames.length ? activeNames[activeNames.length - 1].sort_order + 1 : 1;
+
+        const resp = await window.supabaseClient
+          .from("name_lists")
+          .insert({
+            site_id: siteId,
+            display_name: name,
+            sort_order: nextOrder,
+            is_active: true
+          })
+          .select()
+          .single();
+
+        debug("addNameResp", resp);
+
+        if (resp.error) {
+          showMessage(resp.error.message, "error");
+          return;
+        }
+
+        document.getElementById("newNameInput").value = "";
+        showMessage("Name added.", "success-text");
+        await loadNames();
+      } catch (err) {
+        showMessage(err.message, "error");
+      }
+    }
+
+    async function editName(id) {
+      const row = editableNames.find((n) => n.id === id);
+      if (!row) return;
+
+      const newName = prompt("Edit name:", row.display_name);
+      if (newName === null) return;
+
+      const cleaned = newName.trim();
+      if (!cleaned) {
+        showMessage("Name cannot be empty.", "error");
+        return;
+      }
+
+      const resp = await window.supabaseClient
+        .from("name_lists")
+        .update({ display_name: cleaned })
+        .eq("id", id)
+        .select()
+        .single();
+
+      debug("editNameResp", resp);
+
+      if (resp.error) {
+        showMessage(resp.error.message, "error");
+        return;
+      }
+
+      showMessage("Name updated.", "success-text");
+      await loadNames();
+    }
+
+    async function softDeleteName(id) {
+      const ok = confirm("Soft delete this name?");
+      if (!ok) return;
+
+      const resp = await window.supabaseClient
+        .from("name_lists")
+        .update({
+          deleted_at: new Date().toISOString(),
+          is_active: false
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      debug("softDeleteResp", resp);
+
+      if (resp.error) {
+        showMessage(resp.error.message, "error");
+        return;
+      }
+
+      showMessage("Name soft deleted.", "success-text");
+      await loadNames();
+    }
+
+    async function restoreName(id) {
+      const resp = await window.supabaseClient
+        .from("name_lists")
+        .update({
+          deleted_at: null,
+          is_active: true
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      debug("restoreNameResp", resp);
+
+      if (resp.error) {
+        showMessage(resp.error.message, "error");
+        return;
+      }
+
+      showMessage("Name restored.", "success-text");
+      await loadNames();
+    }
+
+    async function saveOrder() {
+      try {
+        const orderedIds = editableNames
+          .filter((n) => !n.deleted_at && n.is_active)
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((n) => n.id);
+
+        const rpcResp = await window.supabaseClient.rpc("reorder_names", {
+          p_site_id: siteId,
+          p_ordered_ids: orderedIds,
+          p_request_id: crypto.randomUUID()
+        });
+
+        debug("saveOrderRpcResp", rpcResp);
+
+        if (rpcResp.error) {
+          showMessage(rpcResp.error.message, "error");
+          return;
+        }
+
+        showMessage("Order saved.", "success-text");
+        await loadNames();
+      } catch (err) {
+        showMessage(err.message, "error");
+      }
+    }
+
+    async function approveJoinRequest(id) {
+      try {
+        const selectedRole = prompt("Approve with role (ADMIN, EDITOR, TASKER, VIEWER):", "TASKER");
+        if (selectedRole === null) return;
+
+        const role = selectedRole.trim().toUpperCase();
+        if (!["ADMIN", "EDITOR", "TASKER", "VIEWER"].includes(role)) {
+          showMessage("Invalid role.", "error");
+          return;
+        }
+
+        const rpcResp = await window.supabaseClient.rpc("approve_join_request", {
+          p_join_request_id: id,
+          p_role: role,
+          p_request_id: crypto.randomUUID()
+        });
+
+        debug("approveJoinRpcResp", rpcResp);
+
+        if (rpcResp.error) {
+          showMessage(rpcResp.error.message, "error");
+          return;
+        }
+
+        showMessage("Join request approved.", "success-text");
+        await loadJoinRequests();
+      } catch (err) {
+        showMessage(err.message, "error");
+      }
+    }
+
+    async function denyJoinRequest(id) {
+      try {
+        const resp = await window.supabaseClient
+          .from("join_requests")
+          .update({ status: "DENIED" })
+          .eq("id", id)
+          .select()
+          .single();
+
+        debug("denyJoinResp", resp);
+
+        if (resp.error) {
+          showMessage(resp.error.message, "error");
+          return;
+        }
+
+        showMessage("Join request denied.", "success-text");
+        await loadJoinRequests();
+      } catch (err) {
+        showMessage(err.message, "error");
+      }
+    }
+
+    function subscribeToRealtime() {
+      if (!window.supabaseClient) return;
+
+      if (adminChannel) {
+        window.supabaseClient.removeChannel(adminChannel);
+      }
+
+      adminChannel = window.supabaseClient
+        .channel("admin-site-" + siteId)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "name_lists", filter: "site_id=eq." + siteId },
+          async () => { await loadNames(); }
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "join_requests", filter: "site_id=eq." + siteId },
+          async () => { await loadJoinRequests(); }
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "site_settings", filter: "site_id=eq." + siteId },
+          async () => { await loadSettings(); }
+        )
+        .subscribe((status) => {
+          debug("adminRealtimeStatus", status);
+        });
+    }
+
+    document.getElementById("saveSettingsBtn").addEventListener("click", saveSettings);
+    document.getElementById("addNameBtn").addEventListener("click", addName);
+    document.getElementById("saveOrderBtn").addEventListener("click", saveOrder);
+
+    document.getElementById("goDashboardBtn").addEventListener("click", () => {
+      window.location.href = "dashboard.html";
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await window.supabaseClient.auth.signOut();
+      window.location.href = "index.html";
+    });
+
+    subscribeToRealtime();
+    loadAdminPage();
+  </script>
 </body>
 </html>
