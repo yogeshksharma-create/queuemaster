@@ -13,7 +13,7 @@
     }
 
     .card {
-      max-width: 860px;
+      max-width: 900px;
       margin: 0 auto;
       background: white;
       padding: 24px;
@@ -27,7 +27,7 @@
       gap: 20px;
     }
 
-    @media (max-width: 800px) {
+    @media (max-width: 820px) {
       .grid {
         grid-template-columns: 1fr;
       }
@@ -50,7 +50,7 @@
       margin-bottom: 6px;
     }
 
-    input, select {
+    input, select, textarea {
       width: 100%;
       box-sizing: border-box;
       padding: 10px;
@@ -58,6 +58,7 @@
       border-radius: 8px;
       background: white;
       font-size: 14px;
+      font-family: Arial, sans-serif;
     }
 
     button {
@@ -98,7 +99,7 @@
       overflow: auto;
       white-space: pre-wrap;
       font-size: 12px;
-      max-height: 220px;
+      max-height: 240px;
     }
   </style>
 </head>
@@ -124,7 +125,7 @@
         <button id="createSiteBtn">Create Site and Become Admin</button>
 
         <div class="muted">
-          This uses your database function to create the site, initialize settings, initialize queue state, and assign you as ADMIN.
+          This creates the site, initializes default settings, creates queue state, and assigns you as ADMIN.
         </div>
       </div>
 
@@ -150,6 +151,11 @@
             <option value="VIEWER">VIEWER</option>
             <option value="EDITOR">EDITOR</option>
           </select>
+        </div>
+
+        <div class="row">
+          <label for="requestMessage">Message (optional)</label>
+          <textarea id="requestMessage" rows="4" placeholder="Add a note for the site admin"></textarea>
         </div>
 
         <button id="requestJoinBtn">Submit Join Request</button>
@@ -266,6 +272,7 @@
         const selectedSiteId = document.getElementById("sitePicker").value;
         const customSiteName = document.getElementById("customSiteName").value.trim();
         const requestedRole = document.getElementById("requestedRole").value;
+        const requestMessage = document.getElementById("requestMessage").value.trim();
 
         if (!selectedSiteId && !customSiteName) {
           showMessage("Choose a site or type a site name.", "error");
@@ -278,13 +285,14 @@
         }
 
         const insertPayload = {
-          requested_email: currentSession.user.email,
+          requester_user_id: currentSession.user.id,
           requested_role: requestedRole,
+          message: requestMessage || null,
           status: "PENDING"
         };
 
         if (selectedSiteId) {
-          insertPayload.site_id = selectedSiteId;
+          insertPayload.target_site_id = selectedSiteId;
         }
 
         if (customSiteName) {
