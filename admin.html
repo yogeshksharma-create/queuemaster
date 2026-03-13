@@ -209,16 +209,6 @@
       margin-bottom: 14px;
     }
 
-    .status-approved {
-      color: #047857;
-      font-weight: 700;
-    }
-
-    .status-denied {
-      color: #b91c1c;
-      font-weight: 700;
-    }
-
     .status-pending {
       color: #92400e;
       font-weight: 700;
@@ -284,7 +274,7 @@
         <button id="createSiteBtn" class="success">Create Site</button>
 
         <div class="row muted" style="margin-top:10px;">
-          This creates the site, settings, selection state, and assigns you as ADMIN.
+          Creates the site, settings, selection state, and assigns you as ADMIN.
         </div>
       </div>
     </div>
@@ -847,87 +837,20 @@
           return;
         }
 
-        if (!currentSession?.user?.id) {
-          showMessage("No active session found.", "error");
-          return;
-        }
-
         showMessage("Creating site...", "");
 
-        const siteResp = await window.supabaseClient
-          .from("sites")
-          .insert({ name: siteName })
-          .select()
-          .single();
+        const rpcResp = await window.supabaseClient.rpc("create_site_with_admin", {
+          p_site_name: siteName
+        });
 
-        debug("createSite.siteResp", siteResp);
+        debug("createSite.rpcResp", rpcResp);
 
-        if (siteResp.error || !siteResp.data) {
-          showMessage("Create site failed: " + (siteResp.error?.message || "Unknown error"), "error");
+        if (rpcResp.error) {
+          showMessage("Create site failed: " + rpcResp.error.message, "error");
           return;
         }
 
-        const newSiteId = siteResp.data.id;
-
-        const roleResp = await window.supabaseClient
-          .from("user_site_roles")
-          .insert({
-            user_id: currentSession.user.id,
-            site_id: newSiteId,
-            role: "ADMIN",
-            is_active: true
-          })
-          .select()
-          .single();
-
-        debug("createSite.roleResp", roleResp);
-
-        if (roleResp.error) {
-          showMessage("Site created, but admin assignment failed: " + roleResp.error.message, "error");
-          return;
-        }
-
-        const settingsResp = await window.supabaseClient
-          .from("site_settings")
-          .insert({
-            site_id: newSiteId,
-            selection_comment_mode: "optional",
-            skip_comment_mode: "optional",
-            reverse_comment_mode: "required",
-            daily_cycle_reset_enabled: false,
-            commands_enabled: true,
-            allow_free_text_names: true,
-            max_comment_length: 250
-          })
-          .select()
-          .single();
-
-        debug("createSite.settingsResp", settingsResp);
-
-        if (settingsResp.error) {
-          showMessage("Site created, but settings init failed: " + settingsResp.error.message, "error");
-          return;
-        }
-
-        const stateResp = await window.supabaseClient
-          .from("selection_state")
-          .insert({
-            site_id: newSiteId,
-            current_index: 0,
-            cycle_count: 0,
-            last_reset_date: new Date().toISOString().slice(0, 10),
-            version: 0
-          })
-          .select()
-          .single();
-
-        debug("createSite.stateResp", stateResp);
-
-        if (stateResp.error) {
-          showMessage("Site created, but selection state init failed: " + stateResp.error.message, "error");
-          return;
-        }
-
+        const newSiteId = rpcResp.data.site_id;
         document.getElementById("newSiteNameInput").value = "";
         setSelectedSiteId(newSiteId);
         showMessage("Site created successfully.", "success-text");
