@@ -11,34 +11,45 @@
       margin: 24px;
       color: #111827;
     }
+
     .card {
-      max-width: 760px;
+      max-width: 860px;
       margin: 0 auto;
       background: white;
       padding: 24px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
+
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 20px;
     }
+
     @media (max-width: 800px) {
-      .grid { grid-template-columns: 1fr; }
+      .grid {
+        grid-template-columns: 1fr;
+      }
     }
+
     .section {
       border: 1px solid #e5e7eb;
       border-radius: 10px;
       padding: 16px;
       background: #fafafa;
     }
-    .row { margin-bottom: 14px; }
+
+    .row {
+      margin-bottom: 14px;
+    }
+
     label {
       display: block;
       font-weight: 600;
       margin-bottom: 6px;
     }
+
     input, select {
       width: 100%;
       box-sizing: border-box;
@@ -46,7 +57,9 @@
       border: 1px solid #d1d5db;
       border-radius: 8px;
       background: white;
+      font-size: 14px;
     }
+
     button {
       padding: 10px 14px;
       border: none;
@@ -56,11 +69,28 @@
       cursor: pointer;
       margin-right: 8px;
       margin-bottom: 8px;
+      font-size: 14px;
     }
-    button.secondary { background: #6b7280; }
-    .muted { color: #6b7280; font-size: 14px; }
-    .error { color: #b00020; white-space: pre-wrap; }
-    .success { color: #0a7a35; white-space: pre-wrap; }
+
+    button.secondary {
+      background: #6b7280;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .error {
+      color: #b00020;
+      white-space: pre-wrap;
+    }
+
+    .success {
+      color: #0a7a35;
+      white-space: pre-wrap;
+    }
+
     pre {
       background: #f3f4f6;
       padding: 12px;
@@ -85,23 +115,34 @@
     <div class="grid">
       <div class="section">
         <h2>Create New Site</h2>
+
         <div class="row">
           <label for="newSiteName">Site Name</label>
           <input id="newSiteName" type="text" placeholder="Enter new site name" />
         </div>
+
         <button id="createSiteBtn">Create Site and Become Admin</button>
+
+        <div class="muted">
+          This uses your database function to create the site, initialize settings, initialize queue state, and assign you as ADMIN.
+        </div>
       </div>
 
       <div class="section">
         <h2>Join Existing Site</h2>
+
         <div class="row">
           <label for="sitePicker">Existing Site</label>
-          <select id="sitePicker"></select>
+          <select id="sitePicker">
+            <option value="">-- Select a site --</option>
+          </select>
         </div>
+
         <div class="row">
-          <label for="customSiteName">Or Type a New Site Name</label>
+          <label for="customSiteName">Or Type a Site Name</label>
           <input id="customSiteName" type="text" placeholder="Type site name if not listed" />
         </div>
+
         <div class="row">
           <label for="requestedRole">Requested Role</label>
           <select id="requestedRole">
@@ -110,7 +151,12 @@
             <option value="EDITOR">EDITOR</option>
           </select>
         </div>
+
         <button id="requestJoinBtn">Submit Join Request</button>
+
+        <div class="muted">
+          An admin must approve your request before you can access that site.
+        </div>
       </div>
     </div>
 
@@ -125,6 +171,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
+    const SELECTED_SITE_KEY = "qm_selected_site_id";
     let currentSession = null;
 
     function showMessage(text, cls = "") {
@@ -170,7 +217,9 @@
       defaultOpt.textContent = "-- Select a site --";
       picker.appendChild(defaultOpt);
 
-      if (resp.error || !resp.data) return;
+      if (resp.error || !resp.data) {
+        return;
+      }
 
       resp.data.forEach((site) => {
         const opt = document.createElement("option");
@@ -181,79 +230,96 @@
     }
 
     async function createSite() {
-      const name = document.getElementById("newSiteName").value.trim();
+      try {
+        const name = document.getElementById("newSiteName").value.trim();
 
-      if (!name) {
-        showMessage("Enter a site name.", "error");
-        return;
+        if (!name) {
+          showMessage("Enter a site name.", "error");
+          return;
+        }
+
+        showMessage("Creating site...", "");
+
+        const rpcResp = await window.supabaseClient.rpc("create_site_with_admin", {
+          p_site_name: name
+        });
+
+        debug("createSite.rpcResp", rpcResp);
+
+        if (rpcResp.error) {
+          showMessage("Create site failed: " + rpcResp.error.message, "error");
+          return;
+        }
+
+        const newSiteId = rpcResp.data.site_id;
+        localStorage.setItem(SELECTED_SITE_KEY, newSiteId);
+        showMessage("Site created successfully.", "success");
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        debug("createSite.catch", { message: err.message, stack: err.stack });
+        showMessage("Create site failed: " + err.message, "error");
       }
-
-      showMessage("Creating site...", "");
-
-      const rpcResp = await window.supabaseClient.rpc("create_site_with_admin", {
-        p_site_name: name
-      });
-
-      debug("createSite.rpcResp", rpcResp);
-
-      if (rpcResp.error) {
-        showMessage("Create site failed: " + rpcResp.error.message, "error");
-        return;
-      }
-
-      const newSiteId = rpcResp.data.site_id;
-      localStorage.setItem("qm_selected_site_id", newSiteId);
-      showMessage("Site created successfully.", "success");
-      window.location.href = "dashboard.html";
     }
 
     async function submitJoinRequest() {
-      const selectedSiteId = document.getElementById("sitePicker").value;
-      const customSiteName = document.getElementById("customSiteName").value.trim();
-      const requestedRole = document.getElementById("requestedRole").value;
+      try {
+        const selectedSiteId = document.getElementById("sitePicker").value;
+        const customSiteName = document.getElementById("customSiteName").value.trim();
+        const requestedRole = document.getElementById("requestedRole").value;
 
-      if (!selectedSiteId && !customSiteName) {
-        showMessage("Choose a site or type a new site name.", "error");
-        return;
+        if (!selectedSiteId && !customSiteName) {
+          showMessage("Choose a site or type a site name.", "error");
+          return;
+        }
+
+        if (!currentSession?.user) {
+          showMessage("No active session.", "error");
+          return;
+        }
+
+        const insertPayload = {
+          requested_email: currentSession.user.email,
+          requested_role: requestedRole,
+          status: "PENDING"
+        };
+
+        if (selectedSiteId) {
+          insertPayload.site_id = selectedSiteId;
+        }
+
+        if (customSiteName) {
+          insertPayload.requested_site_name = customSiteName;
+        }
+
+        const resp = await window.supabaseClient
+          .from("join_requests")
+          .insert(insertPayload)
+          .select()
+          .single();
+
+        debug("joinRequestResp", resp);
+
+        if (resp.error) {
+          showMessage("Join request failed: " + resp.error.message, "error");
+          return;
+        }
+
+        showMessage("Join request submitted. An admin must approve it.", "success");
+      } catch (err) {
+        debug("submitJoinRequest.catch", { message: err.message, stack: err.stack });
+        showMessage("Join request failed: " + err.message, "error");
       }
-
-      if (!currentSession?.user) {
-        showMessage("No active session.", "error");
-        return;
-      }
-
-      const insertPayload = {
-        user_id: currentSession.user.id,
-        requested_email: currentSession.user.email,
-        requested_role: requestedRole,
-        status: "PENDING"
-      };
-
-      if (selectedSiteId) {
-        insertPayload.site_id = selectedSiteId;
-      } else {
-        insertPayload.requested_site_name = customSiteName;
-      }
-
-      const resp = await window.supabaseClient
-        .from("join_requests")
-        .insert(insertPayload)
-        .select()
-        .single();
-
-      debug("joinRequestResp", resp);
-
-      if (resp.error) {
-        showMessage("Join request failed: " + resp.error.message, "error");
-        return;
-      }
-
-      showMessage("Join request submitted. An admin must approve it.", "success");
     }
 
     async function init() {
+      if (!window.supabaseClient) {
+        showMessage("Supabase client not loaded.", "error");
+        return;
+      }
+
       const ok = await loadSession();
       if (!ok) return;
+
       await loadExistingSites();
     }
 
