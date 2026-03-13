@@ -270,48 +270,53 @@
     }
 
     async function submitJoinRequest() {
-      try {
-        const selectedSiteId = document.getElementById("sitePicker").value;
-        const requestedRole = document.getElementById("requestedRole").value;
-        const requestMessage = document.getElementById("requestMessage").value.trim();
+  try {
+    const sitePicker = document.getElementById("sitePicker");
+    const selectedSiteId = sitePicker.value;
+    const selectedSiteName =
+      sitePicker.options[sitePicker.selectedIndex]?.text || null;
 
-        if (!selectedSiteId) {
-          showMessage("Please select an existing site from the dropdown, or use Create Site instead.", "error");
-          return;
-        }
+    const requestedRole = document.getElementById("requestedRole").value;
+    const requestMessage = document.getElementById("requestMessage").value.trim();
 
-        if (!currentSession?.user) {
-          showMessage("No active session.", "error");
-          return;
-        }
-
-        const insertPayload = {
-          requester_user_id: currentSession.user.id,
-          target_site_id: selectedSiteId,
-          requested_role: requestedRole,
-          message: requestMessage || null,
-          status: "PENDING"
-        };
-
-        const resp = await window.supabaseClient
-          .from("join_requests")
-          .insert(insertPayload)
-          .select()
-          .single();
-
-        debug("joinRequestResp", resp);
-
-        if (resp.error) {
-          showMessage("Join request failed: " + resp.error.message, "error");
-          return;
-        }
-
-        showMessage("Join request submitted. An admin must approve it.", "success");
-      } catch (err) {
-        debug("submitJoinRequest.catch", { message: err.message, stack: err.stack });
-        showMessage("Join request failed: " + err.message, "error");
-      }
+    if (!selectedSiteId) {
+      showMessage("Please select an existing site from the dropdown, or use Create Site instead.", "error");
+      return;
     }
+
+    if (!currentSession?.user) {
+      showMessage("No active session.", "error");
+      return;
+    }
+
+    const insertPayload = {
+      requester_user_id: currentSession.user.id,
+      target_site_id: selectedSiteId,
+      requested_site_name: selectedSiteName,
+      requested_role: requestedRole,
+      message: requestMessage || null,
+      status: "PENDING"
+    };
+
+    const resp = await window.supabaseClient
+      .from("join_requests")
+      .insert(insertPayload)
+      .select()
+      .single();
+
+    debug("joinRequestResp", resp);
+
+    if (resp.error) {
+      showMessage("Join request failed: " + resp.error.message, "error");
+      return;
+    }
+
+    showMessage("Join request submitted. An admin must approve it.", "success");
+  } catch (err) {
+    debug("submitJoinRequest.catch", { message: err.message, stack: err.stack });
+    showMessage("Join request failed: " + err.message, "error");
+  }
+}
 
     async function init() {
       if (!window.supabaseClient) {
