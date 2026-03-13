@@ -274,10 +274,10 @@
         const requestedRole = document.getElementById("requestedRole").value;
         const requestMessage = document.getElementById("requestMessage").value.trim();
 
-        if (!selectedSiteId && !customSiteName) {
-          showMessage("Choose a site or type a site name.", "error");
-          return;
-        }
+       if (!selectedSiteId) {
+  showMessage("Please select an existing site from the dropdown, or use Create Site instead.", "error");
+  return;
+}
 
         if (!currentSession?.user) {
           showMessage("No active session.", "error");
