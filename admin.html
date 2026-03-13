@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -580,54 +579,53 @@
     }
 
     function renderJoinRequests() {
-  const list = document.getElementById("joinRequestList");
-  list.innerHTML = "";
+      const list = document.getElementById("joinRequestList");
+      list.innerHTML = "";
 
-  if (!joinRequests.length) {
-    const li = document.createElement("li");
-    li.className = "list-item";
-    li.textContent = "No pending join requests.";
-    list.appendChild(li);
-    return;
-  }
-
-  joinRequests.forEach((row) => {
-    const li = document.createElement("li");
-    li.className = "list-item";
-
-    li.innerHTML = `
-      <div class="list-item-header">
-        <div>
-          <div class="list-item-title">${row.requested_site_name || "Join Request"}</div>
-          <div class="muted">Requester User ID: ${row.requester_user_id || "Unknown"}</div>
-          <div class="muted">Requested role: ${row.requested_role || "TASKER"}</div>
-          <div class="muted">Submitted: ${new Date(row.created_at).toLocaleString()}</div>
-          <div class="muted">Message: ${row.message || "—"}</div>
-        </div>
-        <div class="inline-actions">
-          <button class="small-btn success" data-action="approve" data-id="${row.id}">Approve</button>
-          <button class="small-btn danger" data-action="deny" data-id="${row.id}">Deny</button>
-        </div>
-      </div>
-      <div class="status-pending">Status: ${row.status}</div>
-    `;
-
-    list.appendChild(li);
-  });
-
-  list.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      const id = e.target.dataset.id;
-      const action = e.target.dataset.action;
-
-      if (action === "approve") {
-        await approveJoinRequest(id);
-      } else if (action === "deny") {
-        await denyJoinRequest(id);
+      if (!joinRequests.length) {
+        const li = document.createElement("li");
+        li.className = "list-item";
+        li.textContent = "No pending join requests.";
+        list.appendChild(li);
+        return;
       }
-    });
-  });
-}
+
+      joinRequests.forEach((row) => {
+        const li = document.createElement("li");
+        li.className = "list-item";
+
+        li.innerHTML = `
+          <div class="list-item-header">
+            <div>
+              <div class="list-item-title">${row.requested_site_name || "Join Request"}</div>
+              <div class="muted">Requester User ID: ${row.requester_user_id || "Unknown"}</div>
+              <div class="muted">Requested role: ${row.requested_role || "TASKER"}</div>
+              <div class="muted">Submitted: ${new Date(row.created_at).toLocaleString()}</div>
+              <div class="muted">Message: ${row.message || "—"}</div>
+            </div>
+            <div class="inline-actions">
+              <button class="small-btn success" data-action="approve" data-id="${row.id}">Approve</button>
+              <button class="small-btn danger" data-action="deny" data-id="${row.id}">Deny</button>
+            </div>
+          </div>
+          <div class="status-pending">Status: ${row.status}</div>
+        `;
+
+        list.appendChild(li);
+      });
+
+      list.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          const id = e.target.dataset.id;
+          const action = e.target.dataset.action;
+          if (action === "approve") {
+            await approveJoinRequest(id);
+          } else if (action === "deny") {
+            await denyJoinRequest(id);
+          }
+        });
+      });
+    }
 
     async function loadSession() {
       const sessionResp = await window.supabaseClient.auth.getSession();
@@ -789,26 +787,26 @@
     }
 
     async function loadJoinRequests() {
-  const siteId = getActiveSiteId();
+      const siteId = getActiveSiteId();
 
-  const reqResp = await window.supabaseClient
-    .from("join_requests")
-    .select("*")
-    .eq("target_site_id", siteId)
-    .eq("status", "PENDING")
-    .order("created_at", { ascending: false });
+      const reqResp = await window.supabaseClient
+        .from("join_requests")
+        .select("*")
+        .eq("target_site_id", siteId)
+        .eq("status", "PENDING")
+        .order("created_at", { ascending: false });
 
-  debug("joinRequestsResp", reqResp);
+      debug("joinRequestsResp", reqResp);
 
-  if (reqResp.error) {
-    showMessage(reqResp.error.message, "error");
-    return false;
-  }
+      if (reqResp.error) {
+        showMessage(reqResp.error.message, "error");
+        return false;
+      }
 
-  joinRequests = reqResp.data || [];
-  renderJoinRequests();
-  return true;
-}
+      joinRequests = reqResp.data || [];
+      renderJoinRequests();
+      return true;
+    }
 
     async function loadAdminPage() {
       try {
