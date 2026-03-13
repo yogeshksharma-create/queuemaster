@@ -207,25 +207,39 @@
       return true;
     }
 
-    async function loadExistingSites() {
-      const resp = await window.supabaseClient
-        .from("sites")
-        .select("id, name")
-        .order("name", { ascending: true });
+async function loadExistingSites() {
+  const resp = await window.supabaseClient
+    .from("sites")
+    .select("id, name, is_active")
+    .order("name", { ascending: true });
 
-      debug("sitesResp", resp);
+  debug("sitesResp", resp);
 
-      const picker = document.getElementById("sitePicker");
-      picker.innerHTML = "";
+  const picker = document.getElementById("sitePicker");
+  picker.innerHTML = "";
 
-      const defaultOpt = document.createElement("option");
-      defaultOpt.value = "";
-      defaultOpt.textContent = "-- Select a site --";
-      picker.appendChild(defaultOpt);
+  const defaultOpt = document.createElement("option");
+  defaultOpt.value = "";
+  defaultOpt.textContent = "-- Select a site --";
+  picker.appendChild(defaultOpt);
 
-      if (resp.error || !resp.data) {
-        return;
-      }
+  if (resp.error) {
+    showMessage("Could not load sites: " + resp.error.message, "error");
+    return;
+  }
+
+  if (!resp.data || !resp.data.length) {
+    showMessage("No visible sites found for onboarding.", "error");
+    return;
+  }
+
+  resp.data.forEach((site) => {
+    const opt = document.createElement("option");
+    opt.value = site.id;
+    opt.textContent = site.name;
+    picker.appendChild(opt);
+  });
+}
 
       resp.data.forEach((site) => {
         const opt = document.createElement("option");
