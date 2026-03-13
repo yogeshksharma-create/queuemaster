@@ -3,67 +3,551 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>History • Multi-Site Name Rotation App</title>
-  <link rel="stylesheet" href="./style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Queue History</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      background: #f6f8fb;
+      color: #111827;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .row {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: white;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      margin-right: 8px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    button.secondary {
+      background: #6b7280;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .error {
+      color: #b00020;
+      white-space: pre-wrap;
+    }
+
+    .success {
+      color: #0a7a35;
+      white-space: pre-wrap;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #eef2ff;
+      color: #3730a3;
+      margin-left: 8px;
+    }
+
+    .list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .history-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+      background: #fff;
+    }
+
+    .history-item.reversed {
+      background: #fff7ed;
+      border-color: #fdba74;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .history-title {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .history-meta {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+
+    .badge-confirm { background: #dbeafe; color: #1d4ed8; }
+    .badge-skip { background: #fef3c7; color: #92400e; }
+    .badge-reverse { background: #fee2e2; color: #b91c1c; }
+    .badge-reset { background: #e9d5ff; color: #6b21a8; }
+    .badge-other { background: #e5e7eb; color: #374151; }
+    .badge-reversed { background: #ffedd5; color: #9a3412; }
+
+    .kv {
+      margin: 6px 0;
+      font-size: 14px;
+    }
+
+    .empty {
+      color: #6b7280;
+      padding: 12px 0;
+    }
+
+    pre {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 8px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-size: 12px;
+      max-height: 240px;
+    }
+  </style>
 </head>
-<body data-page="history">
+<body>
   <div class="container">
-    <header class="header">
+    <div class="topbar">
       <div>
-        <h1>History</h1>
-        <p class="muted">Selection history is visible to site members. Audit history is admin-only.</p>
+        <h1 style="margin-bottom:6px;">Queue History</h1>
+        <div class="muted">
+          Site: <span id="siteName">Loading...</span>
+          <span id="roleBadge" class="pill">...</span>
+        </div>
       </div>
-      <div class="header-actions">
-        <a href="./dashboard.html" class="badge">Dashboard</a>
-        <a href="./admin.html" class="badge">Admin</a>
-        <button id="themeToggle" type="button" class="secondary">Toggle theme</button>
-        <button id="logoutBtn" type="button" class="ghost">Logout</button>
+      <div class="topbar-actions">
+        <button id="goDashboardBtn" class="secondary">Dashboard</button>
+        <button id="goAdminBtn" class="secondary">Admin</button>
+        <button id="logoutBtn" class="secondary">Logout</button>
       </div>
-    </header>
+    </div>
 
-    <nav class="nav">
-      <label for="historySiteSelector" class="small">Current site</label>
-      <select id="historySiteSelector"></select>
-    </nav>
+    <div class="card">
+      <div class="row"><strong>User:</strong> <span id="userEmail">Loading...</span></div>
+      <div class="row"><strong>Role:</strong> <span id="roleName">Loading...</span></div>
+      <div class="row" id="message"></div>
+    </div>
 
-    <section class="card stack">
-      <h2>Selection history</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Action</th>
-              <th>Name</th>
-              <th>Actor</th>
-              <th>Comment</th>
-            </tr>
-          </thead>
-          <tbody id="selectionHistoryTableBody"></tbody>
-        </table>
-      </div>
-    </section>
+    <div class="card">
+      <h2>Filters</h2>
+      <div class="grid">
+        <div>
+          <label for="actionFilter">Action Type</label>
+          <select id="actionFilter">
+            <option value="">All</option>
+            <option value="CONFIRM">CONFIRM</option>
+            <option value="confirm">confirm</option>
+            <option value="SKIP">SKIP</option>
+            <option value="skip">skip</option>
+            <option value="REVERSE">REVERSE</option>
+            <option value="reverse">reverse</option>
+            <option value="RESET">RESET</option>
+            <option value="reset">reset</option>
+          </select>
+        </div>
 
-    <section id="auditSection" class="card stack hidden">
-      <h2>Audit history</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Action</th>
-              <th>Entity</th>
-              <th>Actor</th>
-              <th>Comment</th>
-            </tr>
-          </thead>
-          <tbody id="auditHistoryTableBody"></tbody>
-        </table>
+        <div>
+          <label for="reversedFilter">Reversed Status</label>
+          <select id="reversedFilter">
+            <option value="">All</option>
+            <option value="true">Reversed only</option>
+            <option value="false">Not reversed</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="searchFilter">Search Comment</label>
+          <input id="searchFilter" type="text" placeholder="Search comment text" />
+        </div>
       </div>
-    </section>
+
+      <div class="row" style="margin-top:12px;">
+        <button id="applyFiltersBtn">Apply Filters</button>
+        <button id="clearFiltersBtn" class="secondary">Clear Filters</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>History Log</h2>
+      <div id="historySummary" class="muted row">Loading...</div>
+      <ul id="historyList" class="list"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Debug</h2>
+      <pre id="debugBox">History page starting...</pre>
+    </div>
   </div>
 
-  <script type="module" src="./app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
+  <script>
+    const SELECTED_SITE_KEY = "qm_selected_site_id";
+
+    let currentSession = null;
+    let activeSiteId = null;
+    let currentRole = null;
+    let historyChannel = null;
+    let allRows = [];
+
+    function showMessage(text, cls = "") {
+      const el = document.getElementById("message");
+      el.className = cls;
+      el.textContent = text;
+    }
+
+    function debug(label, value) {
+      const box = document.getElementById("debugBox");
+      const line = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      box.textContent += `\n\n=== ${label} ===\n${line}`;
+      console.log(label, value);
+    }
+
+    function clearDebug() {
+      document.getElementById("debugBox").textContent = "History page starting...";
+    }
+
+    function getSelectedSiteId() {
+      return localStorage.getItem(SELECTED_SITE_KEY);
+    }
+
+    function actionBadgeClass(actionType) {
+      const val = String(actionType || "").toLowerCase();
+      if (val === "confirm") return "badge-confirm";
+      if (val === "skip") return "badge-skip";
+      if (val === "reverse") return "badge-reverse";
+      if (val === "reset") return "badge-reset";
+      return "badge-other";
+    }
+
+    function renderHistory(rows) {
+      const list = document.getElementById("historyList");
+      const summary = document.getElementById("historySummary");
+      list.innerHTML = "";
+
+      summary.textContent = `${rows.length} item(s) shown`;
+
+      if (!rows.length) {
+        const li = document.createElement("li");
+        li.className = "empty";
+        li.textContent = "No history items found for the current filters.";
+        list.appendChild(li);
+        return;
+      }
+
+      rows.forEach((row) => {
+        const li = document.createElement("li");
+        li.className = "history-item";
+        if (row.is_reversed) li.classList.add("reversed");
+
+        const actionType = row.action_type || "UNKNOWN";
+        const createdAt = row.created_at ? new Date(row.created_at).toLocaleString() : "Unknown time";
+        const comment = row.comment || "—";
+        const nameSnapshot = row.free_text_name || row.selected_name_id || "—";
+
+        li.innerHTML = `
+          <div class="history-header">
+            <div>
+              <div class="history-title">
+                <span class="badge ${actionBadgeClass(actionType)}">${actionType}</span>
+                ${row.is_reversed ? '<span class="badge badge-reversed">REVERSED</span>' : ""}
+              </div>
+              <div class="history-meta">${createdAt}</div>
+            </div>
+          </div>
+
+          <div class="kv"><strong>Name:</strong> ${nameSnapshot}</div>
+          <div class="kv"><strong>Comment:</strong> ${comment}</div>
+          <div class="kv"><strong>Reversed:</strong> ${row.is_reversed ? "Yes" : "No"}</div>
+          <div class="kv"><strong>Request ID:</strong> ${row.request_id || "—"}</div>
+        `;
+
+        list.appendChild(li);
+      });
+    }
+
+    function applyFiltersToRows(rows) {
+      const actionFilter = document.getElementById("actionFilter").value;
+      const reversedFilter = document.getElementById("reversedFilter").value;
+      const searchFilter = document.getElementById("searchFilter").value.trim().toLowerCase();
+
+      return rows.filter((row) => {
+        if (actionFilter && String(row.action_type) !== actionFilter) return false;
+
+        if (reversedFilter === "true" && row.is_reversed !== true) return false;
+        if (reversedFilter === "false" && row.is_reversed !== false) return false;
+
+        if (searchFilter) {
+          const haystack = `${row.comment || ""} ${row.free_text_name || ""}`.toLowerCase();
+          if (!haystack.includes(searchFilter)) return false;
+        }
+
+        return true;
+      });
+    }
+
+    function refreshFilteredView() {
+      renderHistory(applyFiltersToRows(allRows));
+    }
+
+    async function loadSession() {
+      const sessionResp = await window.supabaseClient.auth.getSession();
+      debug("sessionResp", sessionResp);
+
+      currentSession = sessionResp?.data?.session || null;
+      if (!currentSession) {
+        showMessage("No session found. Redirecting to login.", "error");
+        setTimeout(() => window.location.href = "index.html", 1200);
+        return false;
+      }
+
+      document.getElementById("userEmail").textContent = currentSession.user.email || "Unknown";
+      return true;
+    }
+
+    async function resolveSiteContext() {
+      activeSiteId = getSelectedSiteId();
+
+      if (activeSiteId) return true;
+
+      const roleResp = await window.supabaseClient
+        .from("user_site_roles")
+        .select("site_id")
+        .eq("user_id", currentSession.user.id)
+        .eq("is_active", true)
+        .limit(1);
+
+      debug("resolveSiteContext.roleResp", roleResp);
+
+      if (roleResp.error || !roleResp.data || !roleResp.data.length) {
+        showMessage("No active site membership found.", "error");
+        return false;
+      }
+
+      activeSiteId = roleResp.data[0].site_id;
+      localStorage.setItem(SELECTED_SITE_KEY, activeSiteId);
+      return true;
+    }
+
+    async function loadRoleAndSite() {
+      const roleResp = await window.supabaseClient
+        .from("user_site_roles")
+        .select("role")
+        .eq("user_id", currentSession.user.id)
+        .eq("site_id", activeSiteId)
+        .eq("is_active", true)
+        .limit(1);
+
+      debug("roleResp", roleResp);
+
+      if (roleResp.error || !roleResp.data || !roleResp.data.length) {
+        showMessage("No active site membership found for selected site.", "error");
+        return false;
+      }
+
+      currentRole = roleResp.data[0].role;
+      document.getElementById("roleName").textContent = currentRole;
+      document.getElementById("roleBadge").textContent = currentRole;
+
+      const siteResp = await window.supabaseClient
+        .from("sites")
+        .select("id, name")
+        .eq("id", activeSiteId)
+        .single();
+
+      debug("siteResp", siteResp);
+
+      if (siteResp.error || !siteResp.data) {
+        showMessage("Site lookup failed.", "error");
+        return false;
+      }
+
+      document.getElementById("siteName").textContent = siteResp.data.name;
+      return true;
+    }
+
+    async function loadHistory() {
+      const historyResp = await window.supabaseClient
+        .from("selection_log")
+        .select("id, action_type, selected_name_id, free_text_name, comment, request_id, created_at, is_reversed")
+        .eq("site_id", activeSiteId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      debug("historyResp", historyResp);
+
+      if (historyResp.error) {
+        showMessage(historyResp.error.message, "error");
+        return false;
+      }
+
+      allRows = historyResp.data || [];
+      refreshFilteredView();
+      return true;
+    }
+
+    function subscribeToRealtime() {
+      if (!window.supabaseClient || !activeSiteId) return;
+
+      if (historyChannel) {
+        window.supabaseClient.removeChannel(historyChannel);
+      }
+
+      historyChannel = window.supabaseClient
+        .channel("history-site-" + activeSiteId)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "selection_log",
+            filter: "site_id=eq." + activeSiteId
+          },
+          async () => {
+            await loadHistory();
+          }
+        )
+        .subscribe((status) => {
+          debug("realtime status", status);
+        });
+    }
+
+    async function init() {
+      try {
+        clearDebug();
+
+        if (!window.supabaseClient) {
+          showMessage("Supabase client not loaded.", "error");
+          return;
+        }
+
+        const okSession = await loadSession();
+        if (!okSession) return;
+
+        const okSite = await resolveSiteContext();
+        if (!okSite) return;
+
+        const okRoleSite = await loadRoleAndSite();
+        if (!okRoleSite) return;
+
+        await loadHistory();
+        subscribeToRealtime();
+
+        showMessage("History loaded.", "success");
+      } catch (err) {
+        debug("init error", { message: err.message, stack: err.stack });
+        showMessage(err.message, "error");
+      }
+    }
+
+    document.getElementById("applyFiltersBtn").addEventListener("click", refreshFilteredView);
+
+    document.getElementById("clearFiltersBtn").addEventListener("click", () => {
+      document.getElementById("actionFilter").value = "";
+      document.getElementById("reversedFilter").value = "";
+      document.getElementById("searchFilter").value = "";
+      refreshFilteredView();
+    });
+
+    document.getElementById("goDashboardBtn").addEventListener("click", () => {
+      window.location.href = "dashboard.html";
+    });
+
+    document.getElementById("goAdminBtn").addEventListener("click", () => {
+      window.location.href = "admin.html";
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await window.supabaseClient.auth.signOut();
+      window.location.href = "index.html";
+    });
+
+    init();
+  </script>
 </body>
 </html>
