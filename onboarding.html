@@ -107,7 +107,7 @@
   <div class="card">
     <h1>Welcome</h1>
     <p class="muted">
-      You do not belong to a site yet. Create a new site and become admin, or request access to an existing site.
+      You do not belong to a site yet. Create a new site and become admin, or request access to a discoverable existing site.
     </p>
 
     <div class="row"><strong>User:</strong> <span id="userEmail">Loading...</span></div>
@@ -133,15 +133,10 @@
         <h2>Join Existing Site</h2>
 
         <div class="row">
-          <label for="sitePicker">Existing Site</label>
+          <label for="sitePicker">Discoverable Sites</label>
           <select id="sitePicker">
             <option value="">-- Select a site --</option>
           </select>
-        </div>
-
-        <div class="row">
-          <label for="customSiteName">Or Type a Site Name</label>
-          <input id="customSiteName" type="text" placeholder="Type site name if not listed" />
         </div>
 
         <div class="row">
@@ -207,39 +202,32 @@
       return true;
     }
 
-async function loadExistingSites() {
-  const resp = await window.supabaseClient
-    .from("sites")
-    .select("id, name, is_active")
-    .order("name", { ascending: true });
+    async function loadExistingSites() {
+      const resp = await window.supabaseClient
+        .from("sites")
+        .select("id, name, is_discoverable")
+        .eq("is_discoverable", true)
+        .order("name", { ascending: true });
 
-  debug("sitesResp", resp);
+      debug("sitesResp", resp);
 
-  const picker = document.getElementById("sitePicker");
-  picker.innerHTML = "";
+      const picker = document.getElementById("sitePicker");
+      picker.innerHTML = "";
 
-  const defaultOpt = document.createElement("option");
-  defaultOpt.value = "";
-  defaultOpt.textContent = "-- Select a site --";
-  picker.appendChild(defaultOpt);
+      const defaultOpt = document.createElement("option");
+      defaultOpt.value = "";
+      defaultOpt.textContent = "-- Select a site --";
+      picker.appendChild(defaultOpt);
 
-  if (resp.error) {
-    showMessage("Could not load sites: " + resp.error.message, "error");
-    return;
-  }
+      if (resp.error) {
+        showMessage("Could not load sites: " + resp.error.message, "error");
+        return;
+      }
 
-  if (!resp.data || !resp.data.length) {
-    showMessage("No visible sites found for onboarding.", "error");
-    return;
-  }
-
-  resp.data.forEach((site) => {
-    const opt = document.createElement("option");
-    opt.value = site.id;
-    opt.textContent = site.name;
-    picker.appendChild(opt);
-  });
-}
+      if (!resp.data || !resp.data.length) {
+        showMessage("No discoverable sites available right now.", "error");
+        return;
+      }
 
       resp.data.forEach((site) => {
         const opt = document.createElement("option");
@@ -284,14 +272,13 @@ async function loadExistingSites() {
     async function submitJoinRequest() {
       try {
         const selectedSiteId = document.getElementById("sitePicker").value;
-        const customSiteName = document.getElementById("customSiteName").value.trim();
         const requestedRole = document.getElementById("requestedRole").value;
         const requestMessage = document.getElementById("requestMessage").value.trim();
 
-       if (!selectedSiteId) {
-  showMessage("Please select an existing site from the dropdown, or use Create Site instead.", "error");
-  return;
-}
+        if (!selectedSiteId) {
+          showMessage("Please select an existing site from the dropdown, or use Create Site instead.", "error");
+          return;
+        }
 
         if (!currentSession?.user) {
           showMessage("No active session.", "error");
@@ -300,18 +287,11 @@ async function loadExistingSites() {
 
         const insertPayload = {
           requester_user_id: currentSession.user.id,
+          target_site_id: selectedSiteId,
           requested_role: requestedRole,
           message: requestMessage || null,
           status: "PENDING"
         };
-
-        if (selectedSiteId) {
-          insertPayload.target_site_id = selectedSiteId;
-        }
-
-        if (customSiteName) {
-          insertPayload.requested_site_name = customSiteName;
-        }
 
         const resp = await window.supabaseClient
           .from("join_requests")
