@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get Started</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f8fb;
+      margin: 24px;
+      color: #111827;
+    }
+    .card {
+      max-width: 760px;
+      margin: 0 auto;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .section {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 16px;
+      background: #fafafa;
+    }
+    .row { margin-bottom: 14px; }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: white;
+    }
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+    button.secondary { background: #6b7280; }
+    .muted { color: #6b7280; font-size: 14px; }
+    .error { color: #b00020; white-space: pre-wrap; }
+    .success { color: #0a7a35; white-space: pre-wrap; }
+    pre {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 8px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-size: 12px;
+      max-height: 220px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Welcome</h1>
+    <p class="muted">
+      You do not belong to a site yet. Create a new site and become admin, or request access to an existing site.
+    </p>
+
+    <div class="row"><strong>User:</strong> <span id="userEmail">Loading...</span></div>
+    <div class="row" id="message"></div>
+
+    <div class="grid">
+      <div class="section">
+        <h2>Create New Site</h2>
+        <div class="row">
+          <label for="newSiteName">Site Name</label>
+          <input id="newSiteName" type="text" placeholder="Enter new site name" />
+        </div>
+        <button id="createSiteBtn">Create Site and Become Admin</button>
+      </div>
+
+      <div class="section">
+        <h2>Join Existing Site</h2>
+        <div class="row">
+          <label for="sitePicker">Existing Site</label>
+          <select id="sitePicker"></select>
+        </div>
+        <div class="row">
+          <label for="customSiteName">Or Type a New Site Name</label>
+          <input id="customSiteName" type="text" placeholder="Type site name if not listed" />
+        </div>
+        <div class="row">
+          <label for="requestedRole">Requested Role</label>
+          <select id="requestedRole">
+            <option value="TASKER">TASKER</option>
+            <option value="VIEWER">VIEWER</option>
+            <option value="EDITOR">EDITOR</option>
+          </select>
+        </div>
+        <button id="requestJoinBtn">Submit Join Request</button>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:20px;">
+      <button id="logoutBtn" class="secondary">Logout</button>
+    </div>
+
+    <h3>Debug</h3>
+    <pre id="debugBox">Onboarding starting...</pre>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabaseClient.js"></script>
+  <script>
+    let currentSession = null;
+
+    function showMessage(text, cls = "") {
+      const el = document.getElementById("message");
+      el.className = cls;
+      el.textContent = text;
+    }
+
+    function debug(label, value) {
+      const box = document.getElementById("debugBox");
+      const line = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      box.textContent += `\n\n=== ${label} ===\n${line}`;
+      console.log(label, value);
+    }
+
+    async function loadSession() {
+      const sessionResp = await window.supabaseClient.auth.getSession();
+      debug("sessionResp", sessionResp);
+
+      currentSession = sessionResp?.data?.session || null;
+      if (!currentSession) {
+        window.location.href = "index.html";
+        return false;
+      }
+
+      document.getElementById("userEmail").textContent = currentSession.user.email || "Unknown";
+      return true;
+    }
+
+    async function loadExistingSites() {
+      const resp = await window.supabaseClient
+        .from("sites")
+        .select("id, name")
+        .order("name", { ascending: true });
+
+      debug("sitesResp", resp);
+
+      const picker = document.getElementById("sitePicker");
+      picker.innerHTML = "";
+
+      const defaultOpt = document.createElement("option");
+      defaultOpt.value = "";
+      defaultOpt.textContent = "-- Select a site --";
+      picker.appendChild(defaultOpt);
+
+      if (resp.error || !resp.data) return;
+
+      resp.data.forEach((site) => {
+        const opt = document.createElement("option");
+        opt.value = site.id;
+        opt.textContent = site.name;
+        picker.appendChild(opt);
+      });
+    }
+
+    async function createSite() {
+      const name = document.getElementById("newSiteName").value.trim();
+
+      if (!name) {
+        showMessage("Enter a site name.", "error");
+        return;
+      }
+
+      showMessage("Creating site...", "");
+
+      const rpcResp = await window.supabaseClient.rpc("create_site_with_admin", {
+        p_site_name: name
+      });
+
+      debug("createSite.rpcResp", rpcResp);
+
+      if (rpcResp.error) {
+        showMessage("Create site failed: " + rpcResp.error.message, "error");
+        return;
+      }
+
+      const newSiteId = rpcResp.data.site_id;
+      localStorage.setItem("qm_selected_site_id", newSiteId);
+      showMessage("Site created successfully.", "success");
+      window.location.href = "dashboard.html";
+    }
+
+    async function submitJoinRequest() {
+      const selectedSiteId = document.getElementById("sitePicker").value;
+      const customSiteName = document.getElementById("customSiteName").value.trim();
+      const requestedRole = document.getElementById("requestedRole").value;
+
+      if (!selectedSiteId && !customSiteName) {
+        showMessage("Choose a site or type a new site name.", "error");
+        return;
+      }
+
+      if (!currentSession?.user) {
+        showMessage("No active session.", "error");
+        return;
+      }
+
+      const insertPayload = {
+        user_id: currentSession.user.id,
+        requested_email: currentSession.user.email,
+        requested_role: requestedRole,
+        status: "PENDING"
+      };
+
+      if (selectedSiteId) {
+        insertPayload.site_id = selectedSiteId;
+      } else {
+        insertPayload.requested_site_name = customSiteName;
+      }
+
+      const resp = await window.supabaseClient
+        .from("join_requests")
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      debug("joinRequestResp", resp);
+
+      if (resp.error) {
+        showMessage("Join request failed: " + resp.error.message, "error");
+        return;
+      }
+
+      showMessage("Join request submitted. An admin must approve it.", "success");
+    }
+
+    async function init() {
+      const ok = await loadSession();
+      if (!ok) return;
+      await loadExistingSites();
+    }
+
+    document.getElementById("createSiteBtn").addEventListener("click", createSite);
+    document.getElementById("requestJoinBtn").addEventListener("click", submitJoinRequest);
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await window.supabaseClient.auth.signOut();
+      window.location.href = "index.html";
+    });
+
+    init();
+  </script>
+</body>
+</html>
