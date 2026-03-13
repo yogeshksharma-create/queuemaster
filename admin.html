@@ -17,6 +17,21 @@
       margin: 0 auto;
     }
 
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     .card {
       background: white;
       padding: 20px;
@@ -136,6 +151,7 @@
       align-items: center;
       gap: 10px;
       margin-bottom: 8px;
+      flex-wrap: wrap;
     }
 
     .list-item-title {
@@ -169,6 +185,7 @@
       border-radius: 8px;
       margin-bottom: 8px;
       background: #fff;
+      flex-wrap: wrap;
     }
 
     .drag-label {
@@ -207,20 +224,6 @@
       font-weight: 700;
     }
 
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .topbar-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
     pre {
       background: #f3f4f6;
       padding: 12px;
@@ -228,7 +231,7 @@
       overflow: auto;
       white-space: pre-wrap;
       font-size: 12px;
-      max-height: 240px;
+      max-height: 260px;
     }
   </style>
 </head>
@@ -238,7 +241,7 @@
       <div>
         <h1 style="margin-bottom:6px;">Queue Admin</h1>
         <div class="muted">
-          Site: <span id="siteName">Loading...</span>
+          Site: <span id="siteName">Select a site</span>
           <span id="roleBadge" class="pill">...</span>
         </div>
       </div>
@@ -249,13 +252,41 @@
     </div>
 
     <div id="adminBanner" class="banner" style="display:none;">
-      Admin access is required for this page.
+      Admin access is required for the selected site.
     </div>
 
     <div class="card">
       <div class="row"><strong>User:</strong> <span id="userEmail">Loading...</span></div>
       <div class="row"><strong>Role:</strong> <span id="roleName">Loading...</span></div>
       <div class="row" id="message"></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Site Selector</h2>
+
+        <div class="row">
+          <label for="siteSelector">Your Sites</label>
+          <select id="siteSelector"></select>
+        </div>
+
+        <button id="switchSiteBtn">Switch Site</button>
+      </div>
+
+      <div class="card">
+        <h2>Create Site</h2>
+
+        <div class="row">
+          <label for="newSiteNameInput">Site Name</label>
+          <input id="newSiteNameInput" type="text" placeholder="Enter new site name" />
+        </div>
+
+        <button id="createSiteBtn" class="success">Create Site</button>
+
+        <div class="row muted" style="margin-top:10px;">
+          This creates the site, settings, selection state, and assigns you as ADMIN.
+        </div>
+      </div>
     </div>
 
     <div class="grid">
@@ -366,14 +397,17 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
+
   <script>
-    const siteId = "456f7318-0278-44c9-bfa6-f5b342b8f340";
+    const SELECTED_SITE_KEY = "qm_selected_site_id";
 
     let currentSession = null;
     let currentRole = null;
     let currentSettingsRow = null;
     let editableNames = [];
     let joinRequests = [];
+    let userSites = [];
+    let selectedSiteId = null;
     let adminChannel = null;
 
     function showMessage(text, cls = "") {
@@ -391,6 +425,51 @@
 
     function ensureAdmin(role) {
       return role === "ADMIN";
+    }
+
+    function getSelectedSiteId() {
+      return localStorage.getItem(SELECTED_SITE_KEY);
+    }
+
+    function setSelectedSiteId(siteId) {
+      localStorage.setItem(SELECTED_SITE_KEY, siteId);
+      selectedSiteId = siteId;
+    }
+
+    function getActiveSiteId() {
+      return selectedSiteId || getSelectedSiteId();
+    }
+
+    function clearDebug() {
+      document.getElementById("debugBox").textContent = "Admin page starting...";
+    }
+
+    function renderSiteSelector() {
+      const selector = document.getElementById("siteSelector");
+      selector.innerHTML = "";
+
+      if (!userSites.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No sites available";
+        selector.appendChild(opt);
+        return;
+      }
+
+      userSites.forEach((site) => {
+        const opt = document.createElement("option");
+        opt.value = site.site_id;
+        opt.textContent = `${site.site_name} (${site.role})`;
+        selector.appendChild(opt);
+      });
+
+      const activeId = getActiveSiteId();
+      if (activeId) {
+        selector.value = activeId;
+      } else if (userSites.length) {
+        selector.value = userSites[0].site_id;
+        setSelectedSiteId(userSites[0].site_id);
+      }
     }
 
     function renderNameEditor() {
@@ -547,7 +626,7 @@
       });
     }
 
-    async function loadSessionAndRole() {
+    async function loadSession() {
       const sessionResp = await window.supabaseClient.auth.getSession();
       debug("sessionResp", sessionResp);
 
@@ -559,29 +638,83 @@
       }
 
       document.getElementById("userEmail").textContent = currentSession.user.email || "Unknown";
+      return true;
+    }
 
+    async function loadUserSites() {
       const roleResp = await window.supabaseClient
         .from("user_site_roles")
-        .select("role")
+        .select("site_id, role")
         .eq("user_id", currentSession.user.id)
-        .eq("site_id", siteId)
-        .eq("is_active", true)
-        .limit(1);
+        .eq("is_active", true);
 
-      debug("roleResp", roleResp);
+      debug("userSites.roleResp", roleResp);
 
-      if (roleResp.error || !roleResp.data || !roleResp.data.length) {
-        showMessage("No active site membership found.", "error");
+      if (roleResp.error) {
+        showMessage(roleResp.error.message, "error");
         return false;
       }
 
-      currentRole = roleResp.data[0].role;
+      const roles = roleResp.data || [];
+      if (!roles.length) {
+        showMessage("No active site memberships found.", "error");
+        return false;
+      }
+
+      const siteIds = roles.map((r) => r.site_id);
+
+      const sitesResp = await window.supabaseClient
+        .from("sites")
+        .select("id, name")
+        .in("id", siteIds);
+
+      debug("userSites.sitesResp", sitesResp);
+
+      if (sitesResp.error) {
+        showMessage(sitesResp.error.message, "error");
+        return false;
+      }
+
+      userSites = roles.map((roleRow) => {
+        const site = (sitesResp.data || []).find((s) => s.id === roleRow.site_id);
+        return {
+          site_id: roleRow.site_id,
+          role: roleRow.role,
+          site_name: site ? site.name : roleRow.site_id
+        };
+      });
+
+      if (!getSelectedSiteId() || !userSites.find((s) => s.site_id === getSelectedSiteId())) {
+        setSelectedSiteId(userSites[0].site_id);
+      } else {
+        selectedSiteId = getSelectedSiteId();
+      }
+
+      renderSiteSelector();
+      return true;
+    }
+
+    async function loadSelectedSiteContext() {
+      const siteId = getActiveSiteId();
+      if (!siteId) {
+        showMessage("No site selected.", "error");
+        return false;
+      }
+
+      const selected = userSites.find((s) => s.site_id === siteId);
+      if (!selected) {
+        showMessage("Selected site is not accessible.", "error");
+        return false;
+      }
+
+      currentRole = selected.role;
       document.getElementById("roleName").textContent = currentRole;
       document.getElementById("roleBadge").textContent = currentRole;
+      document.getElementById("siteName").textContent = selected.site_name;
 
       if (!ensureAdmin(currentRole)) {
         document.getElementById("adminBanner").style.display = "block";
-        showMessage("Admin role required for this page.", "error");
+        showMessage("Admin role required for the selected site.", "error");
         return false;
       }
 
@@ -589,25 +722,9 @@
       return true;
     }
 
-    async function loadSite() {
-      const siteResp = await window.supabaseClient
-        .from("sites")
-        .select("id, name")
-        .eq("id", siteId)
-        .single();
-
-      debug("siteResp", siteResp);
-
-      if (siteResp.error || !siteResp.data) {
-        showMessage("Site lookup failed.", "error");
-        return false;
-      }
-
-      document.getElementById("siteName").textContent = siteResp.data.name;
-      return true;
-    }
-
     async function loadSettings() {
+      const siteId = getActiveSiteId();
+
       const settingsResp = await window.supabaseClient
         .from("site_settings")
         .select("*")
@@ -635,6 +752,8 @@
     }
 
     async function loadNames() {
+      const siteId = getActiveSiteId();
+
       const namesResp = await window.supabaseClient
         .from("name_lists")
         .select("id, display_name, sort_order, is_active, deleted_at")
@@ -655,6 +774,8 @@
     }
 
     async function loadJoinRequests() {
+      const siteId = getActiveSiteId();
+
       const reqResp = await window.supabaseClient
         .from("join_requests")
         .select("*")
@@ -676,21 +797,27 @@
 
     async function loadAdminPage() {
       try {
+        clearDebug();
+
         if (!window.supabaseClient) {
           showMessage("Supabase client not loaded.", "error");
           return;
         }
 
-        const okSession = await loadSessionAndRole();
+        const okSession = await loadSession();
         if (!okSession) return;
 
-        const okSite = await loadSite();
-        if (!okSite) return;
+        const okSites = await loadUserSites();
+        if (!okSites) return;
+
+        const okContext = await loadSelectedSiteContext();
+        if (!okContext) return;
 
         await loadSettings();
         await loadNames();
         await loadJoinRequests();
 
+        subscribeToRealtime();
         showMessage("Admin page loaded.", "success-text");
       } catch (err) {
         debug("loadAdminPage error", { message: err.message, stack: err.stack });
@@ -698,23 +825,141 @@
       }
     }
 
+    async function switchSite() {
+      const selector = document.getElementById("siteSelector");
+      const nextSiteId = selector.value;
+
+      if (!nextSiteId) {
+        showMessage("Choose a site first.", "error");
+        return;
+      }
+
+      setSelectedSiteId(nextSiteId);
+      await loadAdminPage();
+    }
+
+    async function createSite() {
+      try {
+        const siteName = document.getElementById("newSiteNameInput").value.trim();
+
+        if (!siteName) {
+          showMessage("Enter a site name first.", "error");
+          return;
+        }
+
+        if (!currentSession?.user?.id) {
+          showMessage("No active session found.", "error");
+          return;
+        }
+
+        showMessage("Creating site...", "");
+
+        const siteResp = await window.supabaseClient
+          .from("sites")
+          .insert({ name: siteName })
+          .select()
+          .single();
+
+        debug("createSite.siteResp", siteResp);
+
+        if (siteResp.error || !siteResp.data) {
+          showMessage("Create site failed: " + (siteResp.error?.message || "Unknown error"), "error");
+          return;
+        }
+
+        const newSiteId = siteResp.data.id;
+
+        const roleResp = await window.supabaseClient
+          .from("user_site_roles")
+          .insert({
+            user_id: currentSession.user.id,
+            site_id: newSiteId,
+            role: "ADMIN",
+            is_active: true
+          })
+          .select()
+          .single();
+
+        debug("createSite.roleResp", roleResp);
+
+        if (roleResp.error) {
+          showMessage("Site created, but admin assignment failed: " + roleResp.error.message, "error");
+          return;
+        }
+
+        const settingsResp = await window.supabaseClient
+          .from("site_settings")
+          .insert({
+            site_id: newSiteId,
+            selection_comment_mode: "optional",
+            skip_comment_mode: "optional",
+            reverse_comment_mode: "required",
+            daily_cycle_reset_enabled: false,
+            commands_enabled: true,
+            allow_free_text_names: true,
+            max_comment_length: 250
+          })
+          .select()
+          .single();
+
+        debug("createSite.settingsResp", settingsResp);
+
+        if (settingsResp.error) {
+          showMessage("Site created, but settings init failed: " + settingsResp.error.message, "error");
+          return;
+        }
+
+        const stateResp = await window.supabaseClient
+          .from("selection_state")
+          .insert({
+            site_id: newSiteId,
+            current_index: 0,
+            cycle_count: 0,
+            last_reset_date: new Date().toISOString().slice(0, 10),
+            version: 0
+          })
+          .select()
+          .single();
+
+        debug("createSite.stateResp", stateResp);
+
+        if (stateResp.error) {
+          showMessage("Site created, but selection state init failed: " + stateResp.error.message, "error");
+          return;
+        }
+
+        document.getElementById("newSiteNameInput").value = "";
+        setSelectedSiteId(newSiteId);
+        showMessage("Site created successfully.", "success-text");
+        await loadAdminPage();
+      } catch (err) {
+        debug("createSite.catch", err);
+        showMessage("Create site failed: " + err.message, "error");
+      }
+    }
+
     async function saveSettings() {
       try {
-        if (!currentSettingsRow) return;
+        const siteId = getActiveSiteId();
 
-        const payload = {
-          selection_comment_mode: document.getElementById("selectionCommentMode").value,
-          skip_comment_mode: document.getElementById("skipCommentMode").value,
-          reverse_comment_mode: document.getElementById("reverseCommentMode").value,
-          max_comment_length: Number(document.getElementById("maxCommentLength").value || 250),
-          commands_enabled: document.getElementById("commandsEnabled").value === "true",
-          allow_free_text_names: document.getElementById("allowFreeTextNames").value === "true",
-          daily_cycle_reset_enabled: document.getElementById("dailyCycleResetEnabled").value === "true"
-        };
+        if (!siteId) {
+          showMessage("No site selected.", "error");
+          return;
+        }
+
+        showMessage("Saving settings...", "");
 
         const resp = await window.supabaseClient
           .from("site_settings")
-          .update(payload)
+          .update({
+            selection_comment_mode: document.getElementById("selectionCommentMode").value,
+            skip_comment_mode: document.getElementById("skipCommentMode").value,
+            reverse_comment_mode: document.getElementById("reverseCommentMode").value,
+            max_comment_length: Number(document.getElementById("maxCommentLength").value || 250),
+            commands_enabled: document.getElementById("commandsEnabled").value === "true",
+            allow_free_text_names: document.getElementById("allowFreeTextNames").value === "true",
+            daily_cycle_reset_enabled: document.getElementById("dailyCycleResetEnabled").value === "true"
+          })
           .eq("site_id", siteId)
           .select()
           .single();
@@ -722,20 +967,28 @@
         debug("saveSettingsResp", resp);
 
         if (resp.error) {
-          showMessage(resp.error.message, "error");
+          showMessage("Save failed: " + resp.error.message, "error");
           return;
         }
 
-        showMessage("Settings saved.", "success-text");
+        showMessage("Settings saved successfully.", "success-text");
         await loadSettings();
       } catch (err) {
-        showMessage(err.message, "error");
+        debug("saveSettingsCatch", err);
+        showMessage("Save failed: " + err.message, "error");
       }
     }
 
     async function addName() {
       try {
+        const siteId = getActiveSiteId();
         const name = document.getElementById("newNameInput").value.trim();
+
+        if (!siteId) {
+          showMessage("No site selected.", "error");
+          return;
+        }
+
         if (!name) {
           showMessage("Enter a name first.", "error");
           return;
@@ -853,6 +1106,12 @@
 
     async function saveOrder() {
       try {
+        const siteId = getActiveSiteId();
+        if (!siteId) {
+          showMessage("No site selected.", "error");
+          return;
+        }
+
         const orderedIds = editableNames
           .filter((n) => !n.deleted_at && n.is_active)
           .sort((a, b) => a.sort_order - b.sort_order)
@@ -933,7 +1192,8 @@
     }
 
     function subscribeToRealtime() {
-      if (!window.supabaseClient) return;
+      const siteId = getActiveSiteId();
+      if (!window.supabaseClient || !siteId) return;
 
       if (adminChannel) {
         window.supabaseClient.removeChannel(adminChannel);
@@ -961,6 +1221,8 @@
         });
     }
 
+    document.getElementById("switchSiteBtn").addEventListener("click", switchSite);
+    document.getElementById("createSiteBtn").addEventListener("click", createSite);
     document.getElementById("saveSettingsBtn").addEventListener("click", saveSettings);
     document.getElementById("addNameBtn").addEventListener("click", addName);
     document.getElementById("saveOrderBtn").addEventListener("click", saveOrder);
@@ -974,7 +1236,6 @@
       window.location.href = "index.html";
     });
 
-    subscribeToRealtime();
     loadAdminPage();
   </script>
 </body>
