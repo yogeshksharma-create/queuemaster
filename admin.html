@@ -788,26 +788,26 @@
     }
 
     async function loadJoinRequests() {
-      const siteId = getActiveSiteId();
+  const siteId = getActiveSiteId();
 
-      const reqResp = await window.supabaseClient
-        .from("join_requests")
-        .select("*")
-        .eq("target_site_id", siteId)
-        .eq("status", "PENDING")
-        .order("created_at", { ascending: false });
+  const reqResp = await window.supabaseClient
+    .from("join_requests")
+    .select("*")
+    .eq("target_site_id", siteId)
+    .eq("status", "PENDING")
+    .order("created_at", { ascending: false });
 
-      debug("joinRequestsResp", reqResp);
+  debug("joinRequestsResp", reqResp);
 
-      if (reqResp.error) {
-        showMessage(reqResp.error.message, "error");
-        return false;
-      }
+  if (reqResp.error) {
+    showMessage(reqResp.error.message, "error");
+    return false;
+  }
 
-      joinRequests = reqResp.data || [];
-      renderJoinRequests();
-      return true;
-    }
+  joinRequests = reqResp.data || [];
+  renderJoinRequests();
+  return true;
+}
 
     async function loadAdminPage() {
       try {
