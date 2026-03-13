@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -213,6 +214,7 @@
           <button id="confirmBtn">Confirm Next</button>
           <button id="skipBtn">Skip</button>
           <button id="reverseBtn">Reverse</button>
+          <button id="goAdminBtn" class="secondary">Admin</button>
           <button id="logoutBtn" class="secondary">Logout</button>
         </div>
 
@@ -257,13 +259,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
-    const siteId = "456f7318-0278-44c9-bfa6-f5b342b8f340";
+    const SELECTED_SITE_KEY = "qm_selected_site_id";
 
     let pendingAction = null;
     let queueChannel = null;
     let currentSettings = null;
     let currentRole = null;
     let currentCommandsEnabled = true;
+    let activeSiteId = null;
 
     function showMessage(text, cls = "") {
       const el = document.getElementById("message");
@@ -276,6 +279,14 @@
       const line = typeof value === "string" ? value : JSON.stringify(value, null, 2);
       box.textContent += `\n\n=== ${label} ===\n${line}`;
       console.log(label, value);
+    }
+
+    function clearDebug() {
+      document.getElementById("debugBox").textContent = "Dashboard starting...";
+    }
+
+    function getSelectedSiteId() {
+      return localStorage.getItem(SELECTED_SITE_KEY);
     }
 
     function setButtonsDisabled(disabled) {
@@ -380,21 +391,43 @@
         return;
       }
 
-      if (mode === "optional") {
-        openCommentModal(title + " (optional)", actionName);
-        return;
+      openCommentModal(
+        mode === "required" ? `${title} (required)` : `${title} (optional)`,
+        actionName
+      );
+    }
+
+    async function resolveSiteContext(sessionUserId) {
+      const storedSiteId = getSelectedSiteId();
+      activeSiteId = storedSiteId;
+
+      if (activeSiteId) {
+        return true;
       }
 
-      if (mode === "required") {
-        openCommentModal(title + " (required)", actionName);
-        return;
+      const roleResp = await window.supabaseClient
+        .from("user_site_roles")
+        .select("site_id, role")
+        .eq("user_id", sessionUserId)
+        .eq("is_active", true)
+        .limit(1);
+
+      debug("resolveSiteContext.roleResp", roleResp);
+
+      if (roleResp.error || !roleResp.data || !roleResp.data.length) {
+        showMessage("No active site membership found.", "error");
+        return false;
       }
 
-      callRpc(actionName, null);
+      activeSiteId = roleResp.data[0].site_id;
+      localStorage.setItem(SELECTED_SITE_KEY, activeSiteId);
+      return true;
     }
 
     async function loadDashboard() {
       try {
+        clearDebug();
+
         if (!window.supabaseClient) {
           showMessage("Supabase client not loaded.", "error");
           debug("supabaseClient", "missing");
@@ -413,18 +446,21 @@
 
         document.getElementById("userEmail").textContent = session.user.email || "Unknown";
 
+        const okSite = await resolveSiteContext(session.user.id);
+        if (!okSite) return;
+
         const roleResp = await window.supabaseClient
           .from("user_site_roles")
           .select("role, site_id")
           .eq("user_id", session.user.id)
-          .eq("site_id", siteId)
+          .eq("site_id", activeSiteId)
           .eq("is_active", true)
           .limit(1);
 
         debug("roleResp", roleResp);
 
         if (roleResp.error || !roleResp.data || !roleResp.data.length) {
-          showMessage("No active site membership found.", "error");
+          showMessage("No active site membership found for selected site.", "error");
           return;
         }
 
@@ -435,7 +471,7 @@
         const siteResp = await window.supabaseClient
           .from("sites")
           .select("id, name")
-          .eq("id", siteId)
+          .eq("id", activeSiteId)
           .single();
 
         debug("siteResp", siteResp);
@@ -450,7 +486,7 @@
         const settingsResp = await window.supabaseClient
           .from("site_settings")
           .select("selection_comment_mode, skip_comment_mode, reverse_comment_mode, commands_enabled")
-          .eq("site_id", siteId)
+          .eq("site_id", activeSiteId)
           .single();
 
         debug("settingsResp", settingsResp);
@@ -475,7 +511,7 @@
         const stateResp = await window.supabaseClient
           .from("selection_state")
           .select("current_index, cycle_count, version")
-          .eq("site_id", siteId)
+          .eq("site_id", activeSiteId)
           .single();
 
         debug("stateResp", stateResp);
@@ -491,7 +527,7 @@
         const namesResp = await window.supabaseClient
           .from("name_lists")
           .select("id, display_name, sort_order, is_active, deleted_at")
-          .eq("site_id", siteId)
+          .eq("site_id", activeSiteId)
           .eq("is_active", true)
           .is("deleted_at", null)
           .order("sort_order", { ascending: true });
@@ -511,7 +547,7 @@
         const logResp = await window.supabaseClient
           .from("selection_log")
           .select("action_type, comment, created_at")
-          .eq("site_id", siteId)
+          .eq("site_id", activeSiteId)
           .order("created_at", { ascending: false })
           .limit(8);
 
@@ -538,13 +574,13 @@
         const versionResp = await window.supabaseClient
           .from("selection_state")
           .select("version")
-          .eq("site_id", siteId)
+          .eq("site_id", activeSiteId)
           .single();
 
         debug("versionResp", versionResp);
 
         const payload = {
-          p_site_id: siteId,
+          p_site_id: activeSiteId,
           p_comment: commentValue,
           p_request_id: crypto.randomUUID()
         };
@@ -582,21 +618,21 @@
     }
 
     function subscribeToRealtime() {
-      if (!window.supabaseClient) return;
+      if (!window.supabaseClient || !activeSiteId) return;
 
       if (queueChannel) {
         window.supabaseClient.removeChannel(queueChannel);
       }
 
       queueChannel = window.supabaseClient
-        .channel("queue-site-" + siteId)
+        .channel("queue-site-" + activeSiteId)
         .on(
           "postgres_changes",
           {
             event: "*",
             schema: "public",
             table: "selection_state",
-            filter: "site_id=eq." + siteId
+            filter: "site_id=eq." + activeSiteId
           },
           async () => {
             await loadDashboard();
@@ -608,7 +644,7 @@
             event: "*",
             schema: "public",
             table: "selection_log",
-            filter: "site_id=eq." + siteId
+            filter: "site_id=eq." + activeSiteId
           },
           async () => {
             await loadDashboard();
@@ -648,13 +684,16 @@
       openActionCommentFlow("reverse_last_selection", "Reverse last action");
     });
 
+    document.getElementById("goAdminBtn").addEventListener("click", () => {
+      window.location.href = "admin.html";
+    });
+
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await window.supabaseClient.auth.signOut();
       window.location.href = "index.html";
     });
 
-    subscribeToRealtime();
-    loadDashboard();
+    loadDashboard().then(() => subscribeToRealtime());
   </script>
 </body>
 </html>
