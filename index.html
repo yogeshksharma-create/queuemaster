@@ -5,35 +5,177 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Queue Rotation App</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#f4f6f8; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
-    .card { background:#fff; padding:32px; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.1); width:340px; }
-    h1 { margin-top:0; font-size:24px; }
-    input { width:100%; padding:10px; margin:8px 0; border:1px solid #ccc; border-radius:8px; box-sizing:border-box; }
-    button { width:100%; padding:10px; margin-top:10px; border:none; border-radius:8px; background:#2563eb; color:#fff; cursor:pointer; }
-    button.secondary { background:#6b7280; }
-    #msg { margin-top:14px; white-space:pre-wrap; font-size:14px; }
-    .error { color:#b00020; }
-    .ok { color:#0a7a35; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      color: #111827;
+    }
+
+    .card {
+      background: white;
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+      width: 360px;
+      max-width: calc(100vw - 32px);
+    }
+
+    h1 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 24px;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      margin-top: 12px;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 12px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button.secondary {
+      background: #6b7280;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #msg {
+      margin-top: 14px;
+      white-space: pre-wrap;
+      font-size: 14px;
+    }
+
+    .error {
+      color: #b00020;
+    }
+
+    .ok {
+      color: #0a7a35;
+    }
+
+    pre {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 8px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-size: 12px;
+      max-height: 220px;
+      margin-top: 16px;
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Queue Rotation App</h1>
-    <input id="email" type="email" placeholder="Email" />
-    <input id="password" type="password" placeholder="Password" />
+    <div class="muted">
+      Sign in to continue. New users can sign up and will be routed to site onboarding if they do not yet belong to a site.
+    </div>
+
+    <label for="email">Email</label>
+    <input id="email" type="email" placeholder="you@example.com" />
+
+    <label for="password">Password</label>
+    <input id="password" type="password" placeholder="Enter password" />
+
     <button id="signinBtn">Sign In</button>
     <button id="signupBtn" class="secondary">Sign Up</button>
+
     <div id="msg"></div>
+
+    <pre id="debugBox">Index page starting...</pre>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
   <script>
+    const SELECTED_SITE_KEY = "qm_selected_site_id";
+
     const msg = document.getElementById("msg");
 
     function setMsg(text, cls = "") {
       msg.className = cls;
       msg.textContent = text;
+    }
+
+    function debug(label, value) {
+      const box = document.getElementById("debugBox");
+      const line = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      box.textContent += `\n\n=== ${label} ===\n${line}`;
+      console.log(label, value);
+    }
+
+    async function routeAfterLogin() {
+      try {
+        const sessionResp = await window.supabaseClient.auth.getSession();
+        debug("routeAfterLogin.sessionResp", sessionResp);
+
+        const session = sessionResp?.data?.session;
+        if (!session) {
+          setMsg("Could not load session after login.", "error");
+          return;
+        }
+
+        const membershipResp = await window.supabaseClient
+          .from("user_site_roles")
+          .select("site_id")
+          .eq("user_id", session.user.id)
+          .eq("is_active", true)
+          .limit(1);
+
+        debug("routeAfterLogin.membershipResp", membershipResp);
+
+        if (membershipResp.error) {
+          setMsg(membershipResp.error.message, "error");
+          return;
+        }
+
+        if (membershipResp.data && membershipResp.data.length > 0) {
+          localStorage.setItem(SELECTED_SITE_KEY, membershipResp.data[0].site_id);
+          window.location.href = "dashboard.html";
+          return;
+        }
+
+        window.location.href = "onboarding.html";
+      } catch (e) {
+        debug("routeAfterLogin.catch", { message: e.message, stack: e.stack });
+        setMsg(e.message, "error");
+      }
     }
 
     async function signIn() {
@@ -46,21 +188,30 @@
         const email = document.getElementById("email").value.trim();
         const password = document.getElementById("password").value;
 
+        if (!email || !password) {
+          setMsg("Enter both email and password.", "error");
+          return;
+        }
+
+        setMsg("Signing in...", "");
+
         const { data, error } = await window.supabaseClient.auth.signInWithPassword({
           email,
           password
         });
+
+        debug("signInResp", { data, error });
 
         if (error) {
           setMsg(error.message, "error");
           return;
         }
 
-        setMsg("Sign-in successful. Redirecting...", "ok");
-        window.location.href = "dashboard.html";
+        setMsg("Sign-in successful. Routing...", "ok");
+        await routeAfterLogin();
       } catch (e) {
+        debug("signIn.catch", { message: e.message, stack: e.stack });
         setMsg(e.message, "error");
-        console.error(e);
       }
     }
 
@@ -74,10 +225,19 @@
         const email = document.getElementById("email").value.trim();
         const password = document.getElementById("password").value;
 
+        if (!email || !password) {
+          setMsg("Enter both email and password.", "error");
+          return;
+        }
+
+        setMsg("Creating account...", "");
+
         const { data, error } = await window.supabaseClient.auth.signUp({
           email,
           password
         });
+
+        debug("signUpResp", { data, error });
 
         if (error) {
           setMsg(error.message, "error");
@@ -86,13 +246,35 @@
 
         setMsg("Account created. Now sign in.", "ok");
       } catch (e) {
+        debug("signUp.catch", { message: e.message, stack: e.stack });
         setMsg(e.message, "error");
-        console.error(e);
+      }
+    }
+
+    async function checkExistingSession() {
+      try {
+        if (!window.supabaseClient) {
+          setMsg("Supabase client not loaded. Check supabaseClient.js.", "error");
+          return;
+        }
+
+        const sessionResp = await window.supabaseClient.auth.getSession();
+        debug("checkExistingSession.sessionResp", sessionResp);
+
+        const session = sessionResp?.data?.session;
+        if (session) {
+          setMsg("Existing session found. Routing...", "ok");
+          await routeAfterLogin();
+        }
+      } catch (e) {
+        debug("checkExistingSession.catch", { message: e.message, stack: e.stack });
       }
     }
 
     document.getElementById("signinBtn").addEventListener("click", signIn);
     document.getElementById("signupBtn").addEventListener("click", signUp);
+
+    checkExistingSession();
   </script>
 </body>
 </html>
